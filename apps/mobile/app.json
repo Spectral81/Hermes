@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "UTEQ Seguridad",
+    "slug": "uteq-seguridad",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "uteq-seguridad",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#0f1419"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "mx.edu.uteq.seguridad"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f1419"
+      },
+      "package": "mx.edu.uteq.seguridad"
+    },
+    "plugins": ["expo-router"]
+  }
+}
