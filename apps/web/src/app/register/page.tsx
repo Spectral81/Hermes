@@ -3,10 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
-import { getAuthErrorMessage, validateRegister, formatAuthError } from '@uteq/shared';
-import { createClient } from '@/lib/supabase/client';
-import { validateSupabaseConfig } from '@/lib/supabase/config';
-import { getAppUrl } from '@/lib/config';
+import { formatAuthError, getAuthErrorMessage, validateRegister } from '@uteq/shared';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -50,47 +47,35 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const configError = validateSupabaseConfig();
-    if (configError) {
-      setError(configError);
-      setLoading(false);
-      return;
-    }
-
     try {
-      const supabase = createClient();
-      const email = form.email.trim().toLowerCase();
-
-      const { data, error: authError } = await supabase.auth.signUp({
-        email,
-        password: form.password,
-        options: {
-          data: {
-            matricula: form.matricula.trim(),
-            nombre: form.nombre.trim(),
-            apellidos: form.apellidos.trim(),
-            telefono: form.telefono.trim(),
-          },
-          emailRedirectTo: `${getAppUrl()}/auth/callback?next=/dashboard`,
-        },
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matricula: form.matricula,
+          nombre: form.nombre,
+          apellidos: form.apellidos,
+          telefono: form.telefono,
+          email: form.email,
+          password: form.password,
+        }),
       });
 
-      if (authError) {
-        setError(formatAuthError(authError));
+      const result = await res.json();
+
+      if (!res.ok) {
+        setError(
+          result.code
+            ? formatAuthError({ message: result.error, code: result.code, status: res.status })
+            : getAuthErrorMessage(result.error ?? 'Error al registrarse.'),
+        );
         setLoading(false);
         return;
       }
 
-      if (data.user?.identities?.length === 0) {
-        setError('Este correo ya está registrado.');
-        setLoading(false);
-        return;
-      }
-
-      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error de red al registrarse.';
-      setError(getAuthErrorMessage(msg));
+      router.push(`/verify-email?email=${encodeURIComponent(result.email)}`);
+    } catch {
+      setError('No se pudo conectar con el servidor. Revisa el deploy en Railway.');
       setLoading(false);
     }
   }
