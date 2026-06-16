@@ -1,12 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { formatAuthError, getAuthErrorMessage, validateRegister } from '@uteq/shared';
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [form, setForm] = useState({
     matricula: '',
     nombre: '',
@@ -51,6 +49,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
           matricula: form.matricula,
           nombre: form.nombre,
@@ -61,21 +60,33 @@ export default function RegisterPage() {
         }),
       });
 
-      const result = await res.json().catch(() => null);
+      let result: { ok?: boolean; email?: string; error?: string; code?: string } | null = null;
+      const text = await res.text();
+      try {
+        result = text ? JSON.parse(text) : null;
+      } catch {
+        result = null;
+      }
 
-      if (!res.ok || !result) {
+      if (!res.ok) {
         setError(
           result?.code
             ? formatAuthError({ message: result.error, code: result.code, status: res.status })
             : getAuthErrorMessage(result?.error ?? `Error del servidor (HTTP ${res.status}).`),
         );
-        setLoading(false);
         return;
       }
 
-      router.push(`/verify-email?email=${encodeURIComponent(result.email)}`);
-    } catch {
-      setError('No se pudo conectar con el servidor. Revisa el deploy en Railway.');
+      if (!result?.ok || !result.email) {
+        setError('Respuesta inválida del servidor. Recarga la página (Ctrl+Shift+R) e intenta de nuevo.');
+        return;
+      }
+
+      window.location.href = `/verify-email?email=${encodeURIComponent(result.email)}`;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error de red';
+      setError(`Error de conexión: ${msg}. Recarga con Ctrl+Shift+R.`);
+    } finally {
       setLoading(false);
     }
   }
