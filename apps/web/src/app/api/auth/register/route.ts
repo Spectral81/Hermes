@@ -2,6 +2,17 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validateRegister } from '@uteq/shared';
 
+function getRequestAppUrl(request: Request): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
+  if (configured) return configured;
+
+  const host = request.headers.get('x-forwarded-host');
+  const proto = request.headers.get('x-forwarded-proto') ?? 'https';
+  if (host) return `${proto}://${host.split(',')[0].trim()}`;
+
+  return new URL(request.url).origin;
+}
+
 function isValidSupabaseUrl(url: string): boolean {
   try {
     const host = new URL(url).hostname;
@@ -58,8 +69,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
-    ?? new URL(request.url).origin;
+  const appUrl = getRequestAppUrl(request);
   const email = registerInput.email.trim().toLowerCase();
 
   const supabase = createClient(url, key);
