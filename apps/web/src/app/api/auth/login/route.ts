@@ -7,9 +7,20 @@ export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
-  if (!url?.includes('supabase.co') || !key?.startsWith('eyJ')) {
+  if (!url || !key) {
+    return NextResponse.json({ error: 'Faltan variables de Supabase en Railway.' }, { status: 500 });
+  }
+
+  let validHost = false;
+  try {
+    validHost = new URL(url).hostname.endsWith('.supabase.co');
+  } catch {
+    validHost = false;
+  }
+
+  if (!validHost || !key.startsWith('eyJ')) {
     return NextResponse.json(
-      { error: 'Variables de Supabase incorrectas en Railway.' },
+      { error: 'URL debe ser https://xxxxx.supabase.co (NO .com). Revisa Railway.' },
       { status: 500 },
     );
   }

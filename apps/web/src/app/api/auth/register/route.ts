@@ -2,14 +2,18 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validateRegister } from '@uteq/shared';
 
-function getSupabaseEnv() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  return { url, key };
+function isValidSupabaseUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host.endsWith('.supabase.co');
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(request: Request) {
-  const { url, key } = getSupabaseEnv();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   if (!url || !key) {
     return NextResponse.json(
@@ -18,9 +22,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!url.includes('supabase.co')) {
+  if (!isValidSupabaseUrl(url)) {
     return NextResponse.json(
-      { error: 'NEXT_PUBLIC_SUPABASE_URL incorrecta. Debe ser https://xxxxx.supabase.co' },
+      { error: `URL incorrecta: "${url}". Debe ser https://azgcdrbkzfmnsimwqkwv.supabase.co (termina en .co, NO .com).` },
       { status: 500 },
     );
   }
@@ -59,7 +63,11 @@ export async function POST(request: Request) {
   const email = registerInput.email.trim().toLowerCase();
 
   const supabase = createClient(url, key);
-  const { data, error } = await supabase.auth.signUp({
+
+  let data;
+  let error;
+  try {
+    ({ data, error } = await supabase.auth.signUp({
     email,
     password: registerInput.password,
     options: {
@@ -71,7 +79,14 @@ export async function POST(request: Request) {
       },
       emailRedirectTo: `${appUrl}/auth/callback?next=/dashboard`,
     },
-  });
+  }));
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : 'Error de red';
+    return NextResponse.json(
+      { error: `No se pudo conectar a Supabase (${detail}). URL en Railway: ${url}` },
+      { status: 502 },
+    );
+  }
 
   if (error) {
     return NextResponse.json(
