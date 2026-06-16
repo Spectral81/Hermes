@@ -58,29 +58,47 @@ export function validateLogin(input: LoginInput): string | null {
 }
 
 export function getAuthErrorMessage(message: string): string {
-  if (message.includes('Invalid login credentials')) {
+  const msg = message?.trim() ?? '';
+  if (!msg) return 'Error desconocido. Revisa Supabase y las variables en Railway.';
+
+  if (msg.includes('Invalid login credentials')) {
     return 'Correo o contraseña incorrectos.';
   }
-  if (message.includes('Email not confirmed')) {
+  if (msg.includes('Email not confirmed')) {
     return 'Confirma tu correo antes de iniciar sesión.';
   }
-  if (message.includes('User already registered') || message.includes('already been registered')) {
+  if (msg.includes('User already registered') || msg.includes('already been registered')) {
     return 'Este correo ya está registrado.';
   }
-  if (message.includes('Database error saving new user')) {
-    return 'Error en la base de datos. Verifica que ejecutaste el SQL en Supabase y que matrícula/correo no estén duplicados.';
+  if (msg.includes('Database error saving new user')) {
+    return 'Error en la base de datos. Ejecuta el SQL en Supabase (001_profiles.sql).';
   }
-  if (message.includes('duplicate key') || message.includes('profiles_matricula') || message.includes('profiles_email')) {
+  if (msg.includes('duplicate key') || msg.includes('profiles_matricula') || msg.includes('profiles_email') || msg.includes('ya registrado')) {
     return 'Esa matrícula o correo ya está registrado.';
   }
-  if (message.includes('uteq.edu.mx') || message.includes('institucionales') || message.includes('matrícula') || message.includes('teléfono')) {
-    return message;
+  if (msg.includes('uteq.edu.mx') || msg.includes('institucionales') || msg.includes('matrícula') || msg.includes('teléfono')) {
+    return msg;
   }
-  if (message.includes('Signups not allowed')) {
-    return 'El registro está desactivado en Supabase. Actívalo en Authentication → Providers → Email.';
+  if (msg.includes('Signups not allowed')) {
+    return 'Registro desactivado en Supabase → Authentication → Providers → Email → Enable sign ups.';
   }
-  if (message.includes('Email rate limit')) {
-    return 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
+  if (msg.includes('Email rate limit')) {
+    return 'Demasiados intentos. Espera unos minutos.';
   }
-  return message || 'Ocurrió un error. Intenta de nuevo.';
+  if (msg.includes('Failed to fetch')) {
+    return 'No se pudo conectar a Supabase. Revisa NEXT_PUBLIC_SUPABASE_URL en Railway.';
+  }
+  return msg;
+}
+
+export function formatAuthError(error: {
+  message?: string;
+  code?: string;
+  status?: number | null;
+}): string {
+  const main = getAuthErrorMessage(error.message ?? '');
+  const extra = [error.code, error.status ? `HTTP ${error.status}` : '']
+    .filter(Boolean)
+    .join(' · ');
+  return extra && !main.includes(String(error.status ?? '')) ? `${main} (${extra})` : main;
 }

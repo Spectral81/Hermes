@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
-import { getAuthErrorMessage, validateRegister } from '@uteq/shared';
+import { getAuthErrorMessage, validateRegister, formatAuthError } from '@uteq/shared';
 import { createClient } from '@/lib/supabase/client';
+import { validateSupabaseConfig } from '@/lib/supabase/config';
 import { getAppUrl } from '@/lib/config';
 
 export default function RegisterPage() {
@@ -48,36 +49,50 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    const supabase = createClient();
-    const email = form.email.trim().toLowerCase();
 
-    const { data, error: authError } = await supabase.auth.signUp({
-      email,
-      password: form.password,
-      options: {
-        data: {
-          matricula: form.matricula.trim(),
-          nombre: form.nombre.trim(),
-          apellidos: form.apellidos.trim(),
-          telefono: form.telefono.trim(),
+    const configError = validateSupabaseConfig();
+    if (configError) {
+      setError(configError);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const email = form.email.trim().toLowerCase();
+
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password: form.password,
+        options: {
+          data: {
+            matricula: form.matricula.trim(),
+            nombre: form.nombre.trim(),
+            apellidos: form.apellidos.trim(),
+            telefono: form.telefono.trim(),
+          },
+          emailRedirectTo: `${getAppUrl()}/auth/callback?next=/dashboard`,
         },
-        emailRedirectTo: `${getAppUrl()}/auth/callback?next=/dashboard`,
-      },
-    });
+      });
 
-    if (authError) {
-      setError(getAuthErrorMessage(authError.message));
+      if (authError) {
+        setError(formatAuthError(authError));
+        setLoading(false);
+        return;
+      }
+
+      if (data.user?.identities?.length === 0) {
+        setError('Este correo ya está registrado.');
+        setLoading(false);
+        return;
+      }
+
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error de red al registrarse.';
+      setError(getAuthErrorMessage(msg));
       setLoading(false);
-      return;
     }
-
-    if (data.user?.identities?.length === 0) {
-      setError('Este correo ya está registrado.');
-      setLoading(false);
-      return;
-    }
-
-    router.push(`/verify-email?email=${encodeURIComponent(email)}`);
   }
 
   return (
