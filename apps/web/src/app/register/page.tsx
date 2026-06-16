@@ -51,7 +51,7 @@ export default function RegisterPage() {
     const supabase = createClient();
     const email = form.email.trim().toLowerCase();
 
-    const { error: authError } = await supabase.auth.signUp({
+    const { data, error: authError } = await supabase.auth.signUp({
       email,
       password: form.password,
       options: {
@@ -67,6 +67,12 @@ export default function RegisterPage() {
 
     if (authError) {
       setError(getAuthErrorMessage(authError.message));
+      setLoading(false);
+      return;
+    }
+
+    if (data.user?.identities?.length === 0) {
+      setError('Este correo ya está registrado.');
       setLoading(false);
       return;
     }

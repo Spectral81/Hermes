@@ -64,11 +64,23 @@ export function getAuthErrorMessage(message: string): string {
   if (message.includes('Email not confirmed')) {
     return 'Confirma tu correo antes de iniciar sesión.';
   }
-  if (message.includes('User already registered')) {
+  if (message.includes('User already registered') || message.includes('already been registered')) {
     return 'Este correo ya está registrado.';
   }
-  if (message.includes('uteq.edu.mx') || message.includes('institucionales')) {
+  if (message.includes('Database error saving new user')) {
+    return 'Error en la base de datos. Verifica que ejecutaste el SQL en Supabase y que matrícula/correo no estén duplicados.';
+  }
+  if (message.includes('duplicate key') || message.includes('profiles_matricula') || message.includes('profiles_email')) {
+    return 'Esa matrícula o correo ya está registrado.';
+  }
+  if (message.includes('uteq.edu.mx') || message.includes('institucionales') || message.includes('matrícula') || message.includes('teléfono')) {
     return message;
   }
-  return 'Ocurrió un error. Intenta de nuevo.';
+  if (message.includes('Signups not allowed')) {
+    return 'El registro está desactivado en Supabase. Actívalo en Authentication → Providers → Email.';
+  }
+  if (message.includes('Email rate limit')) {
+    return 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
+  }
+  return message || 'Ocurrió un error. Intenta de nuevo.';
 }
