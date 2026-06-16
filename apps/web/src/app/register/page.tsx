@@ -61,13 +61,13 @@ export default function RegisterPage() {
         }),
       });
 
-      const result = await res.json();
+      const result = await res.json().catch(() => null);
 
-      if (!res.ok) {
+      if (!res.ok || !result) {
         setError(
-          result.code
+          result?.code
             ? formatAuthError({ message: result.error, code: result.code, status: res.status })
-            : getAuthErrorMessage(result.error ?? 'Error al registrarse.'),
+            : getAuthErrorMessage(result?.error ?? `Error del servidor (HTTP ${res.status}).`),
         );
         setLoading(false);
         return;
