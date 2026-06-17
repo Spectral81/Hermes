@@ -12,11 +12,7 @@ export default function HomeScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      const { data } = await supabase.rpc('ensure_my_profile');
 
       setProfile(data);
       setLoading(false);
