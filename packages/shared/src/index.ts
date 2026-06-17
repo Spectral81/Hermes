@@ -34,6 +34,76 @@ export interface LoginInput {
   password: string;
 }
 
+export type IncidentType = 'robo' | 'accidente' | 'infraestructura' | 'panico';
+export type InfraCategory = 'agua' | 'electricidad' | 'internet' | 'instalaciones' | 'equipamiento';
+export type Severity = 'leve' | 'moderado' | 'grave';
+export type IncidentStatus = 'activo' | 'en_proceso' | 'cerrado' | 'rechazado';
+
+export interface Incident {
+  id: string;
+  type: IncidentType;
+  category: InfraCategory | null;
+  severity: Severity | null;
+  description: string;
+  lat: number;
+  lng: number;
+  status: IncidentStatus;
+  likes_count: number;
+  created_at: string;
+  created_by: string;
+  author_nombre: string | null;
+  liked_by_me: boolean;
+}
+
+export interface CreateIncidentInput {
+  type: IncidentType;
+  description: string;
+  lat: number;
+  lng: number;
+  category?: InfraCategory | null;
+  severity?: Severity | null;
+}
+
+export const INCIDENT_LABELS: Record<IncidentType, string> = {
+  robo: 'Robo',
+  accidente: 'Accidente',
+  infraestructura: 'Infraestructura',
+  panico: 'Emergencia',
+};
+
+export const INFRA_CATEGORY_LABELS: Record<InfraCategory, string> = {
+  agua: 'Agua',
+  electricidad: 'Electricidad',
+  internet: 'Internet',
+  instalaciones: 'Instalaciones',
+  equipamiento: 'Equipamiento',
+};
+
+export const SEVERITY_LABELS: Record<Severity, string> = {
+  leve: 'Leve',
+  moderado: 'Moderado',
+  grave: 'Grave',
+};
+
+// Colores por tipo (estilo Waze)
+export const INCIDENT_COLORS: Record<IncidentType, string> = {
+  robo: '#ef4444',
+  accidente: '#f97316',
+  infraestructura: '#eab308',
+  panico: '#dc2626',
+};
+
+export function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'ahora';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24);
+  return `hace ${d} d`;
+}
+
 export function isUteqEmail(email: string, domain = UTEQ_EMAIL_DOMAIN): boolean {
   const normalized = email.trim().toLowerCase();
   return normalized.endsWith(`@${domain}`) && normalized.includes('@');
