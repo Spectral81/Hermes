@@ -36,6 +36,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/mapa', request.url));
   }
 
+  if (user && path === '/dashboard') {
+    return NextResponse.redirect(new URL('/mapa', request.url));
+  }
+
   if (path === '/') {
     return NextResponse.redirect(new URL(user ? '/mapa' : '/login', request.url));
   }

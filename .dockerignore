@@ -1,0 +1,14 @@
+node_modules
+**/.next
+**/.expo
+**/dist
+.git
+.gitignore
+docs
+apps/mobile/app
+apps/mobile/assets
+apps/mobile/components
+apps/mobile/contexts
+apps/mobile/lib
+*.md
+.cursor
