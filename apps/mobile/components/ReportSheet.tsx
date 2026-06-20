@@ -13,9 +13,11 @@ import {
 import {
   INCIDENT_COLORS,
   INCIDENT_LABELS,
+  INCIDENT_VECTOR_ICONS,
   INFRA_CATEGORY_LABELS,
   SEVERITY_LABELS,
   type CreateIncidentInput,
+  type IncidentType,
   type InfraCategory,
   type Severity,
 } from '@uteq/shared';
@@ -25,15 +27,15 @@ interface Props {
   visible: boolean;
   coords: { lat: number; lng: number } | null;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (incident: import('@uteq/shared').Incident) => void;
 }
 
-type ReportType = 'robo' | 'accidente' | 'infraestructura';
+type ReportType = Exclude<IncidentType, 'panico'>;
 
 const TYPE_OPTIONS: { type: ReportType; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
-  { type: 'robo', icon: 'incognito' },
-  { type: 'accidente', icon: 'car-emergency' },
-  { type: 'infraestructura', icon: 'wrench' },
+  { type: 'robo', icon: INCIDENT_VECTOR_ICONS.robo },
+  { type: 'accidente', icon: INCIDENT_VECTOR_ICONS.accidente },
+  { type: 'infraestructura', icon: INCIDENT_VECTOR_ICONS.infraestructura },
 ];
 
 const INFRA_OPTIONS = Object.keys(INFRA_CATEGORY_LABELS) as InfraCategory[];
@@ -84,9 +86,9 @@ export function ReportSheet({ visible, coords, onClose, onCreated }: Props) {
     };
 
     try {
-      await createIncident(payload);
+      const created = await createIncident(payload);
       reset();
-      onCreated();
+      onCreated(created);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo crear el reporte.');
       setLoading(false);

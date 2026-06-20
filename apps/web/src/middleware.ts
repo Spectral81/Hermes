@@ -33,11 +33,11 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && (path === '/login' || path === '/register')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/mapa', request.url));
   }
 
   if (path === '/') {
-    return NextResponse.redirect(new URL(user ? '/dashboard' : '/login', request.url));
+    return NextResponse.redirect(new URL(user ? '/mapa' : '/login', request.url));
   }
 
   return supabaseResponse;

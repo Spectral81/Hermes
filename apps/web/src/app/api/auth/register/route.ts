@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         apellidos: registerInput.apellidos.trim(),
         telefono: registerInput.telefono.trim(),
       },
-      emailRedirectTo: `${appUrl}/auth/callback?next=/dashboard`,
+      emailRedirectTo: `${appUrl}/auth/callback?next=/mapa`,
     },
   }));
   } catch (e) {

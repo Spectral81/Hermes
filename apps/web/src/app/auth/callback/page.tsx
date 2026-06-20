@@ -12,7 +12,7 @@ function AuthCallbackContent() {
 
   useEffect(() => {
     const supabase = createClient();
-    const next = searchParams.get('next') ?? '/dashboard';
+    const next = searchParams.get('next') ?? '/mapa';
     const code = searchParams.get('code');
     let done = false;
 

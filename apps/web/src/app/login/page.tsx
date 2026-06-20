@@ -38,7 +38,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push('/dashboard');
+      router.push('/mapa');
       router.refresh();
     } catch {
       setError('No se pudo conectar con el servidor.');

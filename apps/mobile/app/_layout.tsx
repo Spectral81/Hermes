@@ -1,9 +1,10 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
-function RootNavigator() {
+function AuthGate() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
@@ -20,18 +21,33 @@ function RootNavigator() {
     }
   }, [session, loading, segments, router]);
 
-  return (
-    <>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0f1419' } }} />
-    </>
-  );
+  if (loading) {
+    return (
+      <View style={styles.overlay} pointerEvents="none">
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
+
+  return null;
 }
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootNavigator />
+      <StatusBar style="light" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0f1419' } }} />
+      <AuthGate />
     </AuthProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0f1419',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+  },
+});

@@ -1,8 +1,5 @@
-import type {
-  CreateIncidentInput,
-  Incident,
-} from '@uteq/shared';
-import { supabase } from './supabase';
+import type { CreateIncidentInput, Incident } from '@uteq/shared';
+import { createClient } from '@/lib/supabase/client';
 
 function toError(error: unknown): Error {
   if (error && typeof error === 'object') {
@@ -15,12 +12,6 @@ function toError(error: unknown): Error {
     return new Error(msg);
   }
   return new Error(String(error));
-}
-
-export async function fetchIncidents(): Promise<Incident[]> {
-  const { data, error } = await supabase.rpc('list_incidents');
-  if (error) throw toError(error);
-  return ((data ?? []) as Record<string, unknown>[]).map(normalizeIncident);
 }
 
 function normalizeIncident(raw: Record<string, unknown>): Incident {
@@ -41,7 +32,15 @@ function normalizeIncident(raw: Record<string, unknown>): Incident {
   };
 }
 
+export async function fetchIncidents(): Promise<Incident[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('list_incidents');
+  if (error) throw toError(error);
+  return ((data ?? []) as Record<string, unknown>[]).map(normalizeIncident);
+}
+
 export async function createIncident(input: CreateIncidentInput): Promise<Incident> {
+  const supabase = createClient();
   const { data, error } = await supabase.rpc('create_incident', {
     p_type: input.type,
     p_description: input.description,
@@ -57,6 +56,7 @@ export async function createIncident(input: CreateIncidentInput): Promise<Incide
 export async function toggleLike(
   incidentId: string,
 ): Promise<{ likes_count: number; liked: boolean }> {
+  const supabase = createClient();
   const { data, error } = await supabase.rpc('toggle_incident_like', {
     p_incident_id: incidentId,
   });

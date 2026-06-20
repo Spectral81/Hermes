@@ -3,20 +3,44 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { Incident } from '@uteq/shared';
 import { IncidentCard } from '@/components/IncidentCard';
-import { IncidentMarker } from '@/components/IncidentMarker';
+import { MapMarkerOverlay } from '@/components/MapMarkerOverlay';
 import { ReportSheet } from '@/components/ReportSheet';
 import { fetchIncidents } from '@/lib/incidents';
+import { USE_GOOGLE_MAPS } from '@/lib/markerAssets';
 
-// Centro del campus UTEQ (fallback si no hay GPS)
 const CAMPUS_REGION: Region = {
   latitude: 20.6534,
   longitude: -100.4045,
   latitudeDelta: 0.01,
   longitudeDelta: 0.01,
 };
+
+async function resolveLocation(): Promise<{ lat: number; lng: number }> {
+  const fallback = { lat: CAMPUS_REGION.latitude, lng: CAMPUS_REGION.longitude };
+
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return fallback;
+
+    const last = await Location.getLastKnownPositionAsync();
+    if (last) {
+      return { lat: last.coords.latitude, lng: last.coords.longitude };
+    }
+
+    const pos = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('GPS timeout')), 5000),
+      ),
+    ]);
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  } catch {
+    return fallback;
+  }
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -26,39 +50,55 @@ export default function HomeScreen() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [reportVisible, setReportVisible] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
+  const [regionTick, setRegionTick] = useState(0);
 
   const loadIncidents = useCallback(async () => {
     try {
       const data = await fetchIncidents();
       setIncidents(data);
+      setRegionTick((t) => t + 1);
     } catch {
       // silencioso
     }
   }, []);
 
+  function addIncidentToMap(incident: Incident) {
+    setIncidents((prev) => {
+      if (prev.some((i) => i.id === incident.id)) return prev;
+      return [incident, ...prev];
+    });
+    setRegionTick((t) => t + 1);
+    mapRef.current?.animateToRegion({
+      latitude: incident.lat,
+      longitude: incident.lng,
+      latitudeDelta: 0.004,
+      longitudeDelta: 0.004,
+    });
+    setSelected(incident);
+  }
+
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        try {
-          const pos = await Location.getCurrentPositionAsync({});
-          const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setCoords(c);
-          mapRef.current?.animateToRegion({
-            latitude: c.lat,
-            longitude: c.lng,
-            latitudeDelta: 0.008,
-            longitudeDelta: 0.008,
-          });
-        } catch {
-          setCoords({ lat: CAMPUS_REGION.latitude, lng: CAMPUS_REGION.longitude });
-        }
-      } else {
-        setCoords({ lat: CAMPUS_REGION.latitude, lng: CAMPUS_REGION.longitude });
+      const location = await resolveLocation();
+      if (!cancelled) {
+        setCoords(location);
+        mapRef.current?.animateToRegion({
+          latitude: location.lat,
+          longitude: location.lng,
+          latitudeDelta: 0.008,
+          longitudeDelta: 0.008,
+        });
       }
       await loadIncidents();
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadIncidents]);
 
   function handleLikeChange(id: string, likes: number, liked: boolean) {
@@ -71,19 +111,14 @@ export default function HomeScreen() {
   }
 
   async function recenter() {
-    try {
-      const pos = await Location.getCurrentPositionAsync({});
-      const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      setCoords(c);
-      mapRef.current?.animateToRegion({
-        latitude: c.lat,
-        longitude: c.lng,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
-      });
-    } catch {
-      // ignore
-    }
+    const location = await resolveLocation();
+    setCoords(location);
+    mapRef.current?.animateToRegion({
+      latitude: location.lat,
+      longitude: location.lng,
+      latitudeDelta: 0.008,
+      longitudeDelta: 0.008,
+    });
   }
 
   return (
@@ -91,30 +126,39 @@ export default function HomeScreen() {
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        provider={PROVIDER_GOOGLE}
+        provider={USE_GOOGLE_MAPS ? PROVIDER_GOOGLE : undefined}
         initialRegion={CAMPUS_REGION}
         showsUserLocation
         showsMyLocationButton={false}
         onPress={() => setSelected(null)}
-      >
-        {incidents.map((incident) => (
-          <Marker
-            key={incident.id}
-            coordinate={{ latitude: incident.lat, longitude: incident.lng }}
-            onPress={() => setSelected(incident)}
-            tracksViewChanges={false}
-            anchor={{ x: 0.5, y: 1 }}
-          >
-            <IncidentMarker type={incident.type} likes={incident.likes_count} />
-          </Marker>
-        ))}
-      </MapView>
+        onMapReady={() => {
+          setMapReady(true);
+          setRegionTick((t) => t + 1);
+        }}
+        onRegionChangeComplete={() => setRegionTick((t) => t + 1)}
+      />
 
-      {/* Barra superior */}
+      {mapReady && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          {incidents.map((incident) => (
+            <MapMarkerOverlay
+              key={incident.id}
+              incident={incident}
+              mapRef={mapRef}
+              mapReady={mapReady}
+              refreshKey={regionTick}
+              onPress={() => setSelected(incident)}
+            />
+          ))}
+        </View>
+      )}
+
       <View style={styles.topBar} pointerEvents="box-none">
         <View style={styles.badge}>
           <MaterialCommunityIcons name="shield-check" size={18} color="#2563eb" />
-          <Text style={styles.badgeText}>UTEQ Seguridad</Text>
+          <Text style={styles.badgeText}>
+            UTEQ Seguridad{incidents.length > 0 ? ` · ${incidents.length} reportes` : ''}
+          </Text>
         </View>
         <Pressable style={styles.iconBtn} onPress={() => router.push('/(app)/profile')}>
           <MaterialCommunityIcons name="account" size={24} color="#111827" />
@@ -127,12 +171,10 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Botón recentrar */}
       <Pressable style={styles.recenterBtn} onPress={recenter}>
         <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#2563eb" />
       </Pressable>
 
-      {/* FAB reportar */}
       {!selected && (
         <Pressable style={styles.fab} onPress={() => setReportVisible(true)}>
           <MaterialCommunityIcons name="plus" size={28} color="#fff" />
@@ -152,8 +194,9 @@ export default function HomeScreen() {
         visible={reportVisible}
         coords={coords}
         onClose={() => setReportVisible(false)}
-        onCreated={() => {
+        onCreated={(incident) => {
           setReportVisible(false);
+          addIncidentToMap(incident);
           loadIncidents();
         }}
       />

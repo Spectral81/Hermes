@@ -93,6 +93,45 @@ export const INCIDENT_COLORS: Record<IncidentType, string> = {
   panico: '#dc2626',
 };
 
+/** Emoji en burbujas del mapa (móvil overlay + web) */
+export const INCIDENT_EMOJI: Record<IncidentType, string> = {
+  robo: '⚠️',
+  accidente: '🚗',
+  infraestructura: '🔧',
+  panico: '🚨',
+};
+
+/** Nombres MaterialCommunityIcons para formularios y botones móvil */
+export const INCIDENT_VECTOR_ICONS = {
+  robo: 'shield-alert',
+  accidente: 'car-emergency',
+  infraestructura: 'wrench',
+  panico: 'alarm-light',
+} as const;
+
+/** Iconos sugeridos por categoría de infraestructura */
+export const INFRA_CATEGORY_ICONS = {
+  agua: 'water',
+  electricidad: 'flash',
+  internet: 'wifi',
+  instalaciones: 'office-building',
+  equipamiento: 'desktop-classic',
+} as const;
+
+/** Iconos de navegación / acciones en la app móvil */
+export const APP_ICONS = {
+  brand: 'shield-check',
+  profile: 'account',
+  back: 'arrow-left',
+  logout: 'logout',
+  close: 'close',
+  report: 'plus',
+  recenter: 'crosshairs-gps',
+  location: 'map-marker',
+  like: 'thumb-up',
+  likeOutline: 'thumb-up-outline',
+} as const;
+
 export function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diff / 60000);
