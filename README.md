@@ -14,7 +14,7 @@ Monorepo: app móvil (Expo), panel web (Next.js en **Railway**) y Supabase (auth
 
 1. Crear proyecto en [supabase.com](https://supabase.com).
 2. **SQL Editor** → ejecutar `supabase/migrations/001_profiles.sql`.
-3. **Authentication → Providers → Email**: activar email + **Confirm email**.
+3. **Authentication → Providers → Email**: activar email (puede quedar **Confirm email** activado; la web confirma automáticamente con `service_role`).
 4. **Authentication → URL Configuration** (usar tu URL de Railway):
    - **Site URL:** `https://TU-APP.up.railway.app`
    - **Redirect URLs:**
@@ -35,6 +35,7 @@ Monorepo: app móvil (Expo), panel web (Next.js en **Railway**) y Supabase (auth
 |----------|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxx.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | tu anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role key (Settings → API) — **obligatorio** para activar cuentas sin correo |
 | `NEXT_PUBLIC_APP_URL` | `https://xxxx.up.railway.app` |
 
 > Railway inyecta `PORT` automáticamente. No hace falta configurarlo.
@@ -53,6 +54,7 @@ La móvil usa Supabase directamente (no Railway). Crear `.env` en la raíz:
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+EXPO_PUBLIC_WEB_API_URL=https://xxxx.up.railway.app
 ```
 
 ```bash
@@ -73,8 +75,17 @@ npm run dev:mobile
 ## Registro
 
 - Solo `@uteq.edu.mx`
-- Verificación por email → redirige a `/auth/callback` → `/dashboard`
+- Tras registrarse, la cuenta se **activa en el servidor** (no depende del correo de Supabase, límite ~2/hora en plan free)
+- Los evaluadores pueden iniciar sesión de inmediato tras crear la cuenta
 - Perfil en tabla `profiles` vía trigger SQL
+
+### Usuarios de prueba que no pueden entrar
+
+En Supabase → **Authentication → Users** → abrir el usuario → **Confirm email**, o ejecutar en SQL Editor:
+
+```sql
+UPDATE auth.users SET email_confirmed_at = now() WHERE email_confirmed_at IS NULL;
+```
 
 ## Estructura
 

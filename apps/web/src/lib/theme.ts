@@ -1,0 +1,18 @@
+export const HERMES = {
+  blue: '#3B82F6',
+  blueDark: '#1D4ED8',
+  blueSoft: '#EFF6FF',
+  red: '#EF4444',
+  green: '#10B981',
+  amber: '#F59E0B',
+  gray900: '#0F172A',
+  gray700: '#374151',
+  gray600: '#4B5563',
+  gray500: '#6B7280',
+  gray400: '#9CA3AF',
+  gray300: '#D1D5DB',
+  gray200: '#E5E7EB',
+  gray100: '#F3F4F6',
+  gray50: '#F9FAFB',
+  white: '#FFFFFF',
+} as const;

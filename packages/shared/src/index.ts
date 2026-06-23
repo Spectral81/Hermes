@@ -192,7 +192,10 @@ export function getAuthErrorMessage(message: string): string {
     return 'Registro desactivado en Supabase → Authentication → Providers → Email → Enable sign ups.';
   }
   if (msg.includes('Email rate limit')) {
-    return 'Demasiados intentos. Espera unos minutos.';
+    return 'Demasiados intentos de correo. La cuenta puede estar creada: intenta iniciar sesión.';
+  }
+  if (msg.includes('Falta SUPABASE_SERVICE_ROLE_KEY')) {
+    return 'Falta configurar SUPABASE_SERVICE_ROLE_KEY en Railway (Settings → API → service_role).';
   }
   if (msg.includes('Failed to fetch')) {
     return 'No se pudo conectar a Supabase. Revisa NEXT_PUBLIC_SUPABASE_URL en Railway.';

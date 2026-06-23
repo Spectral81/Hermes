@@ -2,7 +2,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  INCIDENT_COLORS,
   INCIDENT_LABELS,
   INFRA_CATEGORY_LABELS,
   SEVERITY_LABELS,
@@ -10,6 +9,8 @@ import {
   type Incident,
 } from '@uteq/shared';
 import { toggleLike } from '@/lib/incidents';
+import { CATEGORY, HERMES, SHADOW } from '@/lib/theme';
+import { HAvatar } from '@/components/ui';
 
 interface Props {
   incident: Incident;
@@ -17,10 +18,9 @@ interface Props {
   onLikeChange: (id: string, likes: number, liked: boolean) => void;
 }
 
-// Tarjeta inferior estilo Waze al tocar un reporte
 export function IncidentCard({ incident, onClose, onLikeChange }: Props) {
   const [busy, setBusy] = useState(false);
-  const color = INCIDENT_COLORS[incident.type];
+  const meta = CATEGORY[incident.type];
 
   const subtitle = [
     incident.category ? INFRA_CATEGORY_LABELS[incident.category] : null,
@@ -45,15 +45,26 @@ export function IncidentCard({ incident, onClose, onLikeChange }: Props) {
   return (
     <View style={styles.card}>
       <Pressable style={styles.close} onPress={onClose} hitSlop={10}>
-        <MaterialCommunityIcons name="close" size={22} color="#6b7280" />
+        <MaterialCommunityIcons name="close" size={18} color={HERMES.gray500} />
       </Pressable>
 
       <View style={styles.headerRow}>
-        <View style={[styles.dot, { backgroundColor: color }]} />
-        <Text style={styles.title}>{INCIDENT_LABELS[incident.type]}</Text>
+        <View style={[styles.glyph, { backgroundColor: meta.bg }]}>
+          <Text style={[styles.glyphText, { color: meta.color }]} allowFontScaling={false}>
+            {meta.glyph}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>
+            {INCIDENT_LABELS[incident.type]}
+            {subtitle ? ` · ${subtitle}` : ''}
+          </Text>
+          <Text style={styles.meta}>
+            {incident.author_nombre ? `${incident.author_nombre} · ` : ''}
+            {timeAgo(incident.created_at)}
+          </Text>
+        </View>
       </View>
-
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
 
       {incident.description ? (
         <Text style={styles.description}>{incident.description}</Text>
@@ -61,12 +72,9 @@ export function IncidentCard({ incident, onClose, onLikeChange }: Props) {
         <Text style={styles.descriptionMuted}>Sin descripción</Text>
       )}
 
-      <Text style={styles.meta}>
-        {incident.author_nombre ? `${incident.author_nombre} · ` : ''}
-        {timeAgo(incident.created_at)}
-      </Text>
-
-      <View style={styles.actions}>
+      <View style={styles.footerRow}>
+        {incident.author_nombre ? <HAvatar name={incident.author_nombre} size={28} /> : null}
+        <View style={{ flex: 1 }} />
         <Pressable
           style={[styles.likeBtn, incident.liked_by_me && styles.likeBtnActive]}
           onPress={handleLike}
@@ -74,14 +82,13 @@ export function IncidentCard({ incident, onClose, onLikeChange }: Props) {
         >
           <MaterialCommunityIcons
             name={incident.liked_by_me ? 'thumb-up' : 'thumb-up-outline'}
-            size={20}
-            color={incident.liked_by_me ? '#fff' : '#2563eb'}
+            size={18}
+            color={incident.liked_by_me ? '#fff' : HERMES.blue}
           />
           <Text style={[styles.likeText, incident.liked_by_me && styles.likeTextActive]}>
             {incident.likes_count}
           </Text>
         </Pressable>
-        <Text style={styles.confirmHint}>Confirmar que sigue aquí</Text>
       </View>
     </View>
   );
@@ -90,39 +97,45 @@ export function IncidentCard({ incident, onClose, onLikeChange }: Props) {
 const styles = StyleSheet.create({
   card: {
     position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 24,
+    left: 16,
+    right: 16,
+    bottom: 36,
     backgroundColor: '#fff',
     borderRadius: 18,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    padding: 16,
+    ...SHADOW.float,
   },
-  close: { position: 'absolute', top: 12, right: 12, zIndex: 2 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot: { width: 12, height: 12, borderRadius: 6 },
-  title: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  subtitle: { color: '#6b7280', marginTop: 2, fontWeight: '500' },
-  description: { color: '#374151', marginTop: 10, fontSize: 15, lineHeight: 21 },
-  descriptionMuted: { color: '#9ca3af', marginTop: 10, fontStyle: 'italic' },
-  meta: { color: '#9ca3af', marginTop: 10, fontSize: 13 },
-  actions: { flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 12 },
+  close: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: HERMES.gray100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 28 },
+  glyph: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  glyphText: { fontSize: 20, fontWeight: '800' },
+  title: { fontSize: 16, fontWeight: '800', color: HERMES.gray900, letterSpacing: -0.3 },
+  meta: { color: HERMES.gray500, marginTop: 2, fontSize: 12 },
+  description: { color: HERMES.gray700, marginTop: 12, fontSize: 14, lineHeight: 20 },
+  descriptionMuted: { color: HERMES.gray400, marginTop: 12, fontStyle: 'italic', fontSize: 14 },
+  footerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 10 },
   likeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderWidth: 1.5,
-    borderColor: '#2563eb',
+    borderColor: HERMES.blue,
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
-  likeBtnActive: { backgroundColor: '#2563eb' },
-  likeText: { color: '#2563eb', fontWeight: '700', fontSize: 15 },
+  likeBtnActive: { backgroundColor: HERMES.blue },
+  likeText: { color: HERMES.blue, fontWeight: '800', fontSize: 15 },
   likeTextActive: { color: '#fff' },
-  confirmHint: { color: '#9ca3af', fontSize: 13, flex: 1 },
 });

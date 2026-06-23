@@ -709,3 +709,482 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── HERMES auth (tema claro) ─── */
+.hermes-lockup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hermes-wordmark {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.hermes-welcome {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 48px 32px 32px;
+  background: linear-gradient(160deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #fff;
+}
+
+.hermes-welcome-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.hermes-welcome-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+
+.hermes-welcome-brand {
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  margin: 0;
+}
+
+.hermes-welcome-tagline {
+  margin: 6px 0 0;
+  opacity: 0.88;
+  font-size: 0.95rem;
+}
+
+.hermes-welcome-pill {
+  margin-top: 24px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.hermes-welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hermes-welcome-btn-primary,
+.hermes-welcome-btn-outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.hermes-welcome-btn-primary {
+  background: #fff;
+  color: #1d4ed8;
+}
+
+.hermes-welcome-btn-outline {
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+.hermes-welcome-btn-primary:hover,
+.hermes-welcome-btn-outline:hover {
+  opacity: 0.92;
+  transform: scale(0.99);
+}
+
+.hermes-welcome-footer {
+  text-align: center;
+  font-size: 0.75rem;
+  opacity: 0.72;
+  margin: 8px 0 0;
+}
+
+.hermes-auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #fff;
+  color: #0f172a;
+}
+
+.hermes-auth-shell {
+  width: 100%;
+  max-width: 420px;
+}
+
+.hermes-auth-shell-wide {
+  max-width: 520px;
+}
+
+.hermes-auth-header {
+  margin-top: 36px;
+}
+
+.hermes-auth-header h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0;
+  color: #0f172a;
+}
+
+.hermes-auth-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.hermes-auth-form {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hermes-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hermes-field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.hermes-input-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 50px;
+  padding: 0 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.hermes-input-valid {
+  border-color: #10b981;
+}
+
+.hermes-input-invalid {
+  border-color: #ef4444;
+}
+
+.hermes-input-icon {
+  color: #6b7280;
+  display: flex;
+}
+
+.hermes-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 0.95rem;
+  color: #0f172a;
+  background: transparent;
+}
+
+.hermes-input-check {
+  color: #10b981;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.hermes-input-action {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+}
+
+.hermes-field-helper {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.hermes-field-error {
+  font-size: 0.75rem;
+  color: #ef4444;
+}
+
+.hermes-btn {
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0 18px;
+  height: 50px;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.hermes-btn-full {
+  width: 100%;
+}
+
+.hermes-btn-round {
+  border-radius: 14px;
+}
+
+.hermes-btn-primary {
+  background: #3b82f6;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.hermes-btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.hermes-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.hermes-btn-link {
+  display: block;
+  text-decoration: none;
+  margin-top: 8px;
+}
+
+.hermes-alert-error {
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.85rem;
+}
+
+.hermes-alert-info {
+  margin-top: 20px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #374151;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.hermes-auth-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hermes-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.hermes-checkbox-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+}
+
+.hermes-link-btn {
+  border: none;
+  background: none;
+  color: #3b82f6;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hermes-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0;
+}
+
+.hermes-divider span {
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.hermes-divider p {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: 0.04em;
+}
+
+.hermes-bio-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.hermes-bio-btn {
+  height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.hermes-bio-btn svg {
+  color: #3b82f6;
+}
+
+.hermes-auth-footer {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.hermes-auth-footer a {
+  color: #3b82f6;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.hermes-auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.hermes-back-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  background: #f3f4f6;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.hermes-progress {
+  display: flex;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.hermes-progress-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 4px;
+  background: #e5e7eb;
+}
+
+.hermes-progress-on {
+  background: #3b82f6;
+}
+
+.hermes-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .hermes-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hermes-strength-row {
+  display: flex;
+  gap: 6px;
+}
+
+.hermes-strength-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: #e5e7eb;
+}
+
+.hermes-strength-1 { background: #ef4444; }
+.hermes-strength-2 { background: #f59e0b; }
+.hermes-strength-3 { background: #f59e0b; }
+.hermes-strength-4 { background: #10b981; }
+
+.hermes-checks-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 0.75rem;
+}
+
+.hermes-check-ok { color: #10b981; }
+.hermes-check-pending { color: #9ca3af; }
+
+.hermes-terms-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: #4b5563;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.hermes-terms-row input {
+  margin-top: 3px;
+  accent-color: #3b82f6;
+}
+
+.hermes-terms-row a {
+  color: #3b82f6;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.hermes-verify-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: #eff6ff;
+  color: #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+}

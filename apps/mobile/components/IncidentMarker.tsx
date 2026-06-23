@@ -1,13 +1,15 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
-import { INCIDENT_COLORS, INCIDENT_EMOJI, type IncidentType } from '@uteq/shared';
+import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
+import type { IncidentType } from '@uteq/shared';
+import { CATEGORY } from '@/lib/theme';
 
-const BUBBLE = 52;
-const TAIL = 14;
-const PAD = 8;
+const PIN_W = 40;
+const PIN_H = 50;
+const PAD = 10;
 
 export const MARKER_LAYOUT = {
-  width: BUBBLE + PAD * 2,
-  height: BUBBLE + TAIL + PAD * 2,
+  width: PIN_W + PAD * 2,
+  height: PIN_H + PAD * 2,
 };
 
 interface Props {
@@ -15,25 +17,37 @@ interface Props {
   likes?: number;
 }
 
+// Pin estilo HERMES: teardrop con color de categoría + glifo en círculo blanco.
 export function IncidentMarker({ type, likes = 0 }: Props) {
-  const color = INCIDENT_COLORS[type];
-  const emoji = INCIDENT_EMOJI[type];
+  const cat = CATEGORY[type];
 
   return (
     <View style={styles.root} collapsable={false}>
-      <View style={[styles.bubble, { backgroundColor: color }]}>
-        <Text style={styles.emoji} allowFontScaling={false}>
-          {emoji}
-        </Text>
-        {likes > 0 && (
-          <View style={styles.likesBadge}>
-            <Text style={styles.likesText} allowFontScaling={false}>
-              {likes > 99 ? '99+' : likes}
-            </Text>
-          </View>
-        )}
-      </View>
-      <View style={[styles.tail, { borderTopColor: color }]} />
+      <Svg width={PIN_W} height={PIN_H} viewBox="0 0 32 40">
+        <Path
+          d="M16 0 C7 0 0 7 0 16 C0 26 16 40 16 40 C16 40 32 26 32 16 C32 7 25 0 16 0 Z"
+          fill={cat.color}
+        />
+        <Circle cx="16" cy="14" r="9" fill="#fff" />
+        <SvgText
+          x="16"
+          y="18.5"
+          textAnchor="middle"
+          fill={cat.color}
+          fontWeight="800"
+          fontSize="13"
+        >
+          {cat.glyph}
+        </SvgText>
+      </Svg>
+
+      {likes > 0 && (
+        <View style={styles.likesBadge}>
+          <Text style={styles.likesText} allowFontScaling={false}>
+            {likes > 99 ? '99+' : likes}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -46,51 +60,20 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingBottom: PAD,
     backgroundColor: 'transparent',
-    ...Platform.select({
-      android: { overflow: 'visible' as const },
-    }),
-  },
-  bubble: {
-    width: BUBBLE,
-    height: BUBBLE,
-    borderRadius: BUBBLE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: '#ffffff',
-  },
-  emoji: {
-    fontSize: 26,
-    lineHeight: 30,
-    textAlign: 'center',
-  },
-  tail: {
-    width: 0,
-    height: 0,
-    marginTop: -1,
-    borderLeftWidth: 9,
-    borderRightWidth: 9,
-    borderTopWidth: TAIL,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
   },
   likesBadge: {
     position: 'absolute',
-    top: -6,
-    right: -8,
-    minWidth: 22,
-    height: 22,
+    top: PAD - 4,
+    right: PAD - 6,
+    minWidth: 20,
+    height: 20,
     paddingHorizontal: 5,
-    borderRadius: 11,
-    backgroundColor: '#111827',
+    borderRadius: 10,
+    backgroundColor: '#0F172A',
     borderWidth: 2,
     borderColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  likesText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
+  likesText: { color: '#fff', fontSize: 10, fontWeight: '800' },
 });

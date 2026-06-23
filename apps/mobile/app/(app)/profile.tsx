@@ -1,25 +1,61 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { Profile } from '@uteq/shared';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  INCIDENT_LABELS,
+  timeAgo,
+  type Incident,
+  type Profile,
+} from '@uteq/shared';
+import { fetchIncidents } from '@/lib/incidents';
 import { supabase } from '@/lib/supabase';
+import { CATEGORY, HERMES, SHADOW } from '@/lib/theme';
+import { HAvatar, HButton, HCard } from '@/components/ui';
+
+const ROLE_LABELS: Record<string, string> = {
+  estudiante: 'Estudiante',
+  admin_general: 'Administrador',
+  responsable_robos: 'Responsable · Robos',
+  responsable_accidentes: 'Responsable · Accidentes',
+  responsable_infraestructura: 'Responsable · Infraestructura',
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [myIncidents, setMyIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadProfile() {
+    async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       const { data } = await supabase.rpc('ensure_my_profile');
       setProfile(data as Profile | null);
+
+      try {
+        const all = await fetchIncidents();
+        setMyIncidents(all.filter((i) => i.created_by === user.id));
+      } catch {
+        // ignore
+      }
       setLoading(false);
     }
-    loadProfile();
+    load();
   }, []);
+
+  const stats = useMemo(() => {
+    const reportes = myIncidents.length;
+    const likes = myIncidents.reduce((sum, i) => sum + (i.likes_count ?? 0), 0);
+    const activos = myIncidents.filter((i) => i.status === 'activo').length;
+    return { reportes, likes, activos };
+  }, [myIncidents]);
+
+  const fullName = profile ? `${profile.nombre} ${profile.apellidos}` : 'Usuario UTEQ';
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -28,92 +64,170 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={HERMES.blue} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <MaterialCommunityIcons name="arrow-left" size={26} color="#e8edf4" />
-        </Pressable>
-        <Text style={styles.headerTitle}>Mi perfil</Text>
-        <View style={{ width: 26 }} />
+      {/* Header azul */}
+      <View style={styles.headerBg}>
+        <View style={styles.headerNav}>
+          <Pressable style={styles.navBtn} onPress={() => router.back()} hitSlop={8}>
+            <MaterialCommunityIcons name="arrow-left" size={20} color="#fff" />
+          </Pressable>
+          <Text style={styles.navTitle}>Mi perfil</Text>
+          <View style={styles.navBtn} />
+        </View>
       </View>
 
-      <View style={styles.avatar}>
-        <MaterialCommunityIcons name="account" size={48} color="#2563eb" />
-      </View>
-
-      {profile && (
-        <>
-          <Text style={styles.name}>{profile.nombre} {profile.apellidos}</Text>
-          <View style={styles.card}>
-            <Row label="Matrícula" value={profile.matricula} />
-            <Row label="Correo" value={profile.email} />
-            <Row label="Teléfono" value={profile.telefono} />
-            <Row label="Rol" value={profile.role} />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.identityRow}>
+          <View style={styles.avatarRing}>
+            <HAvatar name={fullName} size={76} />
           </View>
-        </>
-      )}
+          <View style={styles.identityText}>
+            <Text style={styles.name}>{fullName}</Text>
+            {profile && (
+              <Text style={styles.handle}>
+                {profile.matricula} · {ROLE_LABELS[profile.role] ?? profile.role}
+              </Text>
+            )}
+          </View>
+        </View>
 
-      <Pressable style={styles.logout} onPress={handleLogout}>
-        <MaterialCommunityIcons name="logout" size={20} color="#fca5a5" />
-        <Text style={styles.logoutText}>Cerrar sesión</Text>
-      </Pressable>
+        {/* Stats */}
+        <View style={styles.statsGrid}>
+          {[
+            { n: stats.reportes, l: 'Reportes', c: HERMES.blue },
+            { n: stats.activos, l: 'Activos', c: HERMES.red },
+            { n: stats.likes, l: 'Confirmac.', c: HERMES.green },
+          ].map((s) => (
+            <View key={s.l} style={styles.statCard}>
+              <Text style={[styles.statNum, { color: s.c }]}>{s.n}</Text>
+              <Text style={styles.statLabel}>{s.l}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Datos */}
+        {profile && (
+          <HCard style={styles.block}>
+            <Text style={styles.sectionLabel}>DATOS DE LA CUENTA</Text>
+            <Row icon="email-outline" label="Correo" value={profile.email} />
+            <Row icon="phone-outline" label="Teléfono" value={profile.telefono} />
+            <Row icon="card-account-details-outline" label="Matrícula" value={profile.matricula} />
+          </HCard>
+        )}
+
+        {/* Mis reportes */}
+        <View style={styles.blockHeader}>
+          <Text style={styles.blockTitle}>Mis reportes</Text>
+          <Text style={styles.blockCount}>{myIncidents.length}</Text>
+        </View>
+
+        {myIncidents.length === 0 ? (
+          <HCard style={styles.emptyCard}>
+            <MaterialCommunityIcons name="map-marker-off-outline" size={28} color={HERMES.gray400} />
+            <Text style={styles.emptyText}>Aún no has creado reportes</Text>
+          </HCard>
+        ) : (
+          <View style={{ gap: 8 }}>
+            {myIncidents.slice(0, 5).map((r) => {
+              const meta = CATEGORY[r.type];
+              return (
+                <HCard key={r.id} accent={meta.color} padding={12}>
+                  <View style={styles.reportRow}>
+                    <View style={[styles.reportGlyph, { backgroundColor: meta.bg }]}>
+                      <Text style={[styles.reportGlyphText, { color: meta.color }]} allowFontScaling={false}>
+                        {meta.glyph}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.reportTitle} numberOfLines={1}>
+                        {INCIDENT_LABELS[r.type]}
+                        {r.description ? ` · ${r.description}` : ''}
+                      </Text>
+                      <Text style={styles.reportTime}>{timeAgo(r.created_at)}</Text>
+                    </View>
+                    <View style={styles.reportLikes}>
+                      <MaterialCommunityIcons name="thumb-up" size={13} color={HERMES.gray400} />
+                      <Text style={styles.reportLikesText}>{r.likes_count}</Text>
+                    </View>
+                  </View>
+                </HCard>
+              );
+            })}
+          </View>
+        )}
+
+        <View style={styles.logout}>
+          <HButton label="Cerrar sesión" variant="ghost" icon="logout" full onPress={handleLogout} />
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  value: string;
+}) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+    <View style={styles.dataRow}>
+      <MaterialCommunityIcons name={icon} size={18} color={HERMES.gray400} />
+      <Text style={styles.dataLabel}>{label}</Text>
+      <Text style={styles.dataValue} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f1419', padding: 20, paddingTop: 56 },
-  center: { flex: 1, backgroundColor: '#0f1419', justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerTitle: { color: '#e8edf4', fontSize: 18, fontWeight: '700' },
-  avatar: {
-    alignSelf: 'center',
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#1a2332',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  name: { color: '#e8edf4', fontSize: 22, fontWeight: '700', textAlign: 'center', marginTop: 12 },
-  card: {
-    backgroundColor: '#1a2332',
-    borderWidth: 1,
-    borderColor: '#2d3a4d',
-    borderRadius: 14,
-    padding: 16,
-    gap: 14,
-    marginTop: 24,
-  },
-  row: { gap: 2 },
-  rowLabel: { color: '#8b9cb3', fontSize: 13 },
-  rowValue: { color: '#e8edf4', fontWeight: '500', fontSize: 15 },
-  logout: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 32,
-    borderWidth: 1,
-    borderColor: '#3f1d1d',
+  container: { flex: 1, backgroundColor: HERMES.gray50 },
+  center: { flex: 1, backgroundColor: HERMES.gray50, justifyContent: 'center', alignItems: 'center' },
+  headerBg: { backgroundColor: HERMES.blue, paddingTop: 52, paddingBottom: 64, paddingHorizontal: 20 },
+  headerNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  navBtn: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    padding: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logoutText: { color: '#fca5a5', fontWeight: '600', fontSize: 15 },
+  navTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
+  identityRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 14, marginTop: -48, marginBottom: 20 },
+  avatarRing: { padding: 4, borderRadius: 46, backgroundColor: '#fff', ...SHADOW.float },
+  identityText: { flex: 1, paddingBottom: 6 },
+  name: { fontSize: 20, fontWeight: '800', color: HERMES.gray900, letterSpacing: -0.3 },
+  handle: { fontSize: 12, color: HERMES.gray500, marginTop: 2 },
+  statsGrid: { flexDirection: 'row', gap: 8, marginBottom: 18 },
+  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, paddingVertical: 14, alignItems: 'center', ...SHADOW.card },
+  statNum: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  statLabel: { fontSize: 10, color: HERMES.gray500, fontWeight: '700', marginTop: 2 },
+  block: { marginBottom: 18 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: HERMES.gray500, letterSpacing: 0.4, marginBottom: 12 },
+  dataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  dataLabel: { fontSize: 13, color: HERMES.gray500, width: 72 },
+  dataValue: { flex: 1, fontSize: 13, color: HERMES.gray900, fontWeight: '600', textAlign: 'right' },
+  blockHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  blockTitle: { fontSize: 16, fontWeight: '800', color: HERMES.gray900 },
+  blockCount: { fontSize: 13, fontWeight: '700', color: HERMES.gray400 },
+  emptyCard: { alignItems: 'center', gap: 8, paddingVertical: 24 },
+  emptyText: { color: HERMES.gray500, fontSize: 13 },
+  reportRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  reportGlyph: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  reportGlyphText: { fontSize: 14, fontWeight: '800' },
+  reportTitle: { fontSize: 13, fontWeight: '700', color: HERMES.gray900 },
+  reportTime: { fontSize: 11, color: HERMES.gray500, marginTop: 1 },
+  reportLikes: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  reportLikesText: { fontSize: 12, color: HERMES.gray400, fontWeight: '700' },
+  logout: { marginTop: 24 },
 });

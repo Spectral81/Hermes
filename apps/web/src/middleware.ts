@@ -29,19 +29,15 @@ export async function middleware(request: NextRequest) {
   const isPublic = PUBLIC_ROUTES.some((route) => path.startsWith(route));
 
   if (!user && !isPublic && path !== '/') {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
-  if (user && (path === '/login' || path === '/register')) {
+  if (user && (path === '/login' || path === '/register' || path === '/')) {
     return NextResponse.redirect(new URL('/mapa', request.url));
   }
 
   if (user && path === '/dashboard') {
     return NextResponse.redirect(new URL('/mapa', request.url));
-  }
-
-  if (path === '/') {
-    return NextResponse.redirect(new URL(user ? '/mapa' : '/login', request.url));
   }
 
   return supabaseResponse;

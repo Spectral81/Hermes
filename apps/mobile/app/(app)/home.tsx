@@ -1,15 +1,24 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import MapView, { PROVIDER_GOOGLE, type Region } from 'react-native-maps';
-import type { Incident } from '@uteq/shared';
+import type { Incident, IncidentType } from '@uteq/shared';
 import { IncidentCard } from '@/components/IncidentCard';
 import { MapMarkerOverlay } from '@/components/MapMarkerOverlay';
 import { ReportSheet } from '@/components/ReportSheet';
 import { fetchIncidents } from '@/lib/incidents';
 import { USE_GOOGLE_MAPS } from '@/lib/markerAssets';
+import { CATEGORY, HERMES, SHADOW } from '@/lib/theme';
+import { HAvatar } from '@/components/ui';
 
 const CAMPUS_REGION: Region = {
   latitude: 20.6534,
@@ -17,6 +26,16 @@ const CAMPUS_REGION: Region = {
   latitudeDelta: 0.01,
   longitudeDelta: 0.01,
 };
+
+type FilterKey = 'all' | IncidentType;
+
+const FILTERS: { key: FilterKey; label: string; color?: string }[] = [
+  { key: 'all', label: 'Todas' },
+  { key: 'robo', label: 'Robos', color: CATEGORY.robo.color },
+  { key: 'accidente', label: 'Accidentes', color: CATEGORY.accidente.color },
+  { key: 'infraestructura', label: 'Fallas', color: CATEGORY.infraestructura.color },
+  { key: 'panico', label: 'SOS', color: CATEGORY.panico.color },
+];
 
 async function resolveLocation(): Promise<{ lat: number; lng: number }> {
   const fallback = { lat: CAMPUS_REGION.latitude, lng: CAMPUS_REGION.longitude };
@@ -49,6 +68,8 @@ export default function HomeScreen() {
   const [selected, setSelected] = useState<Incident | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [reportVisible, setReportVisible] = useState(false);
+  const [reportType, setReportType] = useState<IncidentType | null>(null);
+  const [filter, setFilter] = useState<FilterKey>('all');
   const [loading, setLoading] = useState(true);
   const [mapReady, setMapReady] = useState(false);
   const [regionTick, setRegionTick] = useState(0);
@@ -62,6 +83,11 @@ export default function HomeScreen() {
       // silencioso
     }
   }, []);
+
+  const visibleIncidents = useMemo(
+    () => (filter === 'all' ? incidents : incidents.filter((i) => i.type === filter)),
+    [incidents, filter],
+  );
 
   function addIncidentToMap(incident: Incident) {
     setIncidents((prev) => {
@@ -121,6 +147,12 @@ export default function HomeScreen() {
     });
   }
 
+  function openReport(type: IncidentType | null) {
+    setSelected(null);
+    setReportType(type);
+    setReportVisible(true);
+  }
+
   return (
     <View style={styles.container}>
       <MapView
@@ -140,7 +172,7 @@ export default function HomeScreen() {
 
       {mapReady && (
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          {incidents.map((incident) => (
+          {visibleIncidents.map((incident) => (
             <MapMarkerOverlay
               key={incident.id}
               incident={incident}
@@ -153,46 +185,92 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {/* Header flotante */}
       <View style={styles.topBar} pointerEvents="box-none">
-        <View style={styles.badge}>
-          <MaterialCommunityIcons name="shield-check" size={18} color="#2563eb" />
-          <Text style={styles.badgeText}>
-            UTEQ Seguridad{incidents.length > 0 ? ` · ${incidents.length} reportes` : ''}
-          </Text>
+        <View style={styles.headerPill}>
+          <MaterialCommunityIcons name="shield-check" size={20} color={HERMES.blue} />
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerEyebrow}>UTEQ CAMPUS</Text>
+            <Text style={styles.headerTitle}>
+              {incidents.length > 0 ? `${incidents.length} alertas activas` : 'Sin alertas cerca'}
+            </Text>
+          </View>
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>EN VIVO</Text>
+          </View>
         </View>
-        <Pressable style={styles.iconBtn} onPress={() => router.push('/(app)/profile')}>
-          <MaterialCommunityIcons name="account" size={24} color="#111827" />
+        <Pressable onPress={() => router.push('/(app)/profile')}>
+          <HAvatar name="UTEQ" size={48} />
+        </Pressable>
+      </View>
+
+      {/* Chips de filtro */}
+      <View style={styles.chipsWrap} pointerEvents="box-none">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+        >
+          {FILTERS.map((f) => {
+            const active = filter === f.key;
+            const count =
+              f.key === 'all' ? incidents.length : incidents.filter((i) => i.type === f.key).length;
+            return (
+              <Pressable
+                key={f.key}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => setFilter(f.key)}
+              >
+                {f.color && <View style={[styles.chipDot, { backgroundColor: f.color }]} />}
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {f.label}
+                  {f.key === 'all' ? ` · ${count}` : count > 0 ? ` ${count}` : ''}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* FAB derecho */}
+      <View style={styles.rightStack} pointerEvents="box-none">
+        <Pressable style={styles.miniFab} onPress={recenter}>
+          <MaterialCommunityIcons name="crosshairs-gps" size={22} color={HERMES.gray700} />
+        </Pressable>
+        <Pressable style={styles.miniFab} onPress={loadIncidents}>
+          <MaterialCommunityIcons name="refresh" size={22} color={HERMES.gray700} />
         </Pressable>
       </View>
 
       {loading && (
         <View style={styles.loadingPill}>
-          <ActivityIndicator color="#2563eb" />
+          <ActivityIndicator color={HERMES.blue} />
         </View>
       )}
 
-      <Pressable style={styles.recenterBtn} onPress={recenter}>
-        <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#2563eb" />
-      </Pressable>
-
-      {!selected && (
-        <Pressable style={styles.fab} onPress={() => setReportVisible(true)}>
-          <MaterialCommunityIcons name="plus" size={28} color="#fff" />
-          <Text style={styles.fabText}>Reportar</Text>
-        </Pressable>
-      )}
-
-      {selected && (
+      {selected ? (
         <IncidentCard
           incident={selected}
           onClose={() => setSelected(null)}
           onLikeChange={handleLikeChange}
         />
+      ) : (
+        <View style={styles.bottomBar} pointerEvents="box-none">
+          <Pressable style={styles.sosBtn} onPress={() => openReport('panico')}>
+            <View style={styles.sosDot} />
+            <Text style={styles.sosText}>EMERGENCIA SOS</Text>
+          </Pressable>
+          <Pressable style={styles.reportFab} onPress={() => openReport(null)}>
+            <MaterialCommunityIcons name="plus" size={28} color="#fff" />
+          </Pressable>
+        </View>
       )}
 
       <ReportSheet
         visible={reportVisible}
         coords={coords}
+        initialType={reportType}
         onClose={() => setReportVisible(false)}
         onCreated={(incident) => {
           setReportVisible(false);
@@ -205,81 +283,115 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f1419' },
+  container: { flex: 1, backgroundColor: HERMES.gray100 },
   topBar: {
     position: 'absolute',
-    top: 50,
-    left: 12,
-    right: 12,
+    top: 52,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 10,
   },
-  badge: {
+  headerPill: {
+    flex: 1,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    borderRadius: 14,
+    ...SHADOW.float,
+  },
+  headerCenter: { flex: 1 },
+  headerEyebrow: {
+    fontSize: 10,
+    color: HERMES.gray500,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  headerTitle: { fontSize: 13, color: HERMES.gray900, fontWeight: '700', marginTop: -1 },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: HERMES.green },
+  liveText: { color: HERMES.green, fontSize: 11, fontWeight: '800' },
+  chipsWrap: { position: 'absolute', top: 112, left: 0, right: 0 },
+  chipsRow: { paddingHorizontal: 16, gap: 8 },
+  chip: {
+    height: 34,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.97)',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    ...SHADOW.card,
   },
-  badgeText: { fontWeight: '700', color: '#111827' },
-  iconBtn: {
+  chipActive: { backgroundColor: HERMES.gray900 },
+  chipDot: { width: 6, height: 6, borderRadius: 3 },
+  chipText: { fontSize: 12, fontWeight: '700', color: HERMES.gray700 },
+  chipTextActive: { color: '#fff' },
+  rightStack: { position: 'absolute', right: 16, top: 170, gap: 12 },
+  miniFab: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#fff',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    ...SHADOW.fab,
   },
   loadingPill: {
     position: 'absolute',
-    top: 110,
+    top: 160,
     alignSelf: 'center',
     backgroundColor: '#fff',
     padding: 10,
     borderRadius: 999,
-    elevation: 4,
+    ...SHADOW.card,
   },
-  recenterBtn: {
+  bottomBar: {
     position: 'absolute',
+    left: 16,
     right: 16,
-    bottom: 110,
-    backgroundColor: '#fff',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 32,
-    alignSelf: 'center',
+    bottom: 36,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 999,
-    shadowColor: '#2563eb',
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    gap: 10,
+  },
+  sosBtn: {
+    flex: 1,
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: HERMES.redIntense,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: HERMES.redIntense,
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 8,
   },
-  fabText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  sosDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#fff',
+  },
+  sosText: { color: '#fff', fontSize: 15, fontWeight: '800', letterSpacing: 1 },
+  reportFab: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    backgroundColor: HERMES.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: HERMES.blue,
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
 });

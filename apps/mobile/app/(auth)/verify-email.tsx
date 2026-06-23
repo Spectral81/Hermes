@@ -1,47 +1,60 @@
-import { Link, useLocalSearchParams } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
+import { HERMES } from '@/lib/theme';
+import { HButton } from '@/components/ui';
 
 export default function VerifyEmailScreen() {
+  const router = useRouter();
   const { email } = useLocalSearchParams<{ email?: string }>();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.badge}>UTEQ</Text>
+      <View style={styles.iconCircle}>
+        <MaterialCommunityIcons name="email-check-outline" size={34} color={HERMES.blue} />
+      </View>
+
       <Text style={styles.title}>Verifica tu correo</Text>
       <Text style={styles.subtitle}>
-        Enviamos un enlace de confirmación{email ? ` a ${email}` : ''}.
+        Si tu registro fue exitoso ya puedes iniciar sesión
+        {email ? `, ${email}` : ''}.
       </Text>
+
       <View style={styles.infoBox}>
+        <MaterialCommunityIcons name="information-outline" size={18} color={HERMES.blue} />
         <Text style={styles.infoText}>
-          Revisa tu bandeja de entrada. Debes confirmar el correo antes de iniciar sesión.
+          El servidor activa tu cuenta automáticamente. Si no recibes el correo, intenta iniciar sesión.
         </Text>
       </View>
-      <Link href="/(auth)/login" style={styles.link}>Ir a iniciar sesión</Link>
+
+      <View style={styles.action}>
+        <HButton label="Ir a iniciar sesión" full onPress={() => router.replace('/(auth)/login')} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f1419', padding: 24, justifyContent: 'center' },
-  badge: {
-    alignSelf: 'flex-start',
-    color: '#2563eb',
-    backgroundColor: 'rgba(37,99,235,0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    fontWeight: '700',
-    fontSize: 12,
-    overflow: 'hidden',
+  container: { flex: 1, backgroundColor: HERMES.white, padding: 24, justifyContent: 'center' },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    backgroundColor: HERMES.blueSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
-  title: { color: '#e8edf4', fontSize: 28, fontWeight: '700', marginTop: 12 },
-  subtitle: { color: '#8b9cb3', marginTop: 8 },
+  title: { fontSize: 26, fontWeight: '800', color: HERMES.gray900, letterSpacing: -0.5 },
+  subtitle: { fontSize: 14, color: HERMES.gray500, marginTop: 8, lineHeight: 21 },
   infoBox: {
-    backgroundColor: '#1e3a5f',
-    padding: 16,
-    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: HERMES.blueSoft,
+    borderRadius: 12,
+    padding: 14,
     marginTop: 24,
   },
-  infoText: { color: '#93c5fd' },
-  link: { color: '#2563eb', marginTop: 24, fontSize: 16, fontWeight: '600' },
+  infoText: { color: HERMES.gray700, flex: 1, fontSize: 13, lineHeight: 19 },
+  action: { marginTop: 28 },
 });

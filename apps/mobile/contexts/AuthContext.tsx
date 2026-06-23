@@ -18,8 +18,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function initAuth() {
       try {
-        const { data: { session: s } } = await supabase.auth.getSession();
-        if (!cancelled) setSession(s);
+        const result = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('auth_timeout')), 8000),
+          ),
+        ]);
+        if (!cancelled) setSession(result.data.session);
       } catch {
         if (!cancelled) setSession(null);
       } finally {

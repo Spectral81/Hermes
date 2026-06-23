@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "UTEQ Seguridad",
+    "name": "HERMES UTEQ",
     "slug": "uteq-seguridad",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "uteq-seguridad",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#0f1419"
+      "backgroundColor": "#3B82F6"
     },
     "ios": {
       "supportsTablet": true,
@@ -15,7 +15,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0f1419"
+        "backgroundColor": "#3B82F6"
       },
       "package": "mx.edu.uteq.seguridad"
     },
