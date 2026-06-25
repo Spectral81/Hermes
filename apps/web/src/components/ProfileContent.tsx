@@ -9,7 +9,7 @@ import {
   type Incident,
   type Profile,
 } from '@uteq/shared';
-import { HAvatar } from '@/components/ui/HAvatar';
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { HButton } from '@/components/ui/HButton';
 import { HCard } from '@/components/ui/HCard';
 import { BackIcon, LogoutIcon, ThumbUpIcon } from '@/components/ui/icons';
@@ -91,9 +91,7 @@ export function ProfileContent() {
 
       <div className="hermes-profile-body">
         <div className="hermes-profile-identity">
-          <div className="hermes-profile-avatar-ring">
-            <HAvatar name={fullName} size={76} />
-          </div>
+          <ProfileAvatar name={fullName} size={88} />
           <div>
             <h1 className="hermes-profile-name">{fullName}</h1>
             {profile && (

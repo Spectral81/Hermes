@@ -1,30 +1,30 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Incident, IncidentType } from '@uteq/shared';
+import {
+  INCIDENT_LABELS,
+  timeAgo,
+  type Incident,
+} from '@uteq/shared';
+import type { Profile } from '@uteq/shared';
 import { IncidentCard } from '@/components/IncidentCard';
+import { ProfileDrawer } from '@/components/ProfileDrawer';
 import { ReportSheet } from '@/components/ReportSheet';
-import { HAvatar } from '@/components/ui/HAvatar';
 import { HButton } from '@/components/ui/HButton';
-import { GpsIcon, RefreshIcon } from '@/components/ui/icons';
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
+import { distanceMeters, formatDistance } from '@/lib/geo';
 import { fetchIncidents } from '@/lib/incidents';
+import { createClient } from '@/lib/supabase/client';
 import { CATEGORY } from '@/lib/theme';
 
 const UTEQ_CENTER: [number, number] = [20.6534, -100.4045];
 const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 
-type FilterKey = 'all' | IncidentType;
-
-const FILTERS: { key: FilterKey; label: string; color?: string; glyph?: string }[] = [
-  { key: 'all', label: 'Todos los reportes', glyph: '◎' },
-  { key: 'robo', label: 'Robos', color: CATEGORY.robo.color, glyph: CATEGORY.robo.glyph },
-  { key: 'accidente', label: 'Accidentes', color: CATEGORY.accidente.color, glyph: CATEGORY.accidente.glyph },
-  { key: 'infraestructura', label: 'Fallas', color: CATEGORY.infraestructura.color, glyph: CATEGORY.infraestructura.glyph },
-  { key: 'panico', label: 'SOS', color: CATEGORY.panico.color, glyph: CATEGORY.panico.glyph },
-];
+interface IncidentWithDistance extends Incident {
+  distanceM: number;
+}
 
 function loadLeaflet(): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -54,7 +54,7 @@ function loadLeaflet(): Promise<any> {
   });
 }
 
-function markerIcon(L: any, type: IncidentType, likes: number) {
+function markerIcon(L: any, type: Incident['type'], likes: number) {
   const cat = CATEGORY[type];
   const badge =
     likes > 0
@@ -101,14 +101,23 @@ export function IncidentsMap() {
   const [selected, setSelected] = useState<Incident | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
-  const [filter, setFilter] = useState<FilterKey>('all');
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileName, setProfileName] = useState<string | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const visibleIncidents = useMemo(
-    () => (filter === 'all' ? incidents : incidents.filter((i) => i.type === filter)),
-    [incidents, filter],
-  );
+  const sortedAlerts = useMemo((): IncidentWithDistance[] => {
+    if (!coords) {
+      return incidents.map((i) => ({ ...i, distanceM: Infinity }));
+    }
+    return incidents
+      .map((i) => ({
+        ...i,
+        distanceM: distanceMeters(coords.lat, coords.lng, i.lat, i.lng),
+      }))
+      .sort((a, b) => a.distanceM - b.distanceM);
+  }, [incidents, coords]);
 
   const renderMarkers = useCallback((L: any, list: Incident[]) => {
     const layer = layerRef.current;
@@ -128,13 +137,25 @@ export function IncidentsMap() {
     try {
       const data = await fetchIncidents();
       setIncidents(data);
-      if (LRef.current) renderMarkers(LRef.current, filter === 'all' ? data : data.filter((i) => i.type === filter));
+      if (LRef.current) renderMarkers(LRef.current, data);
       setStatus('ready');
     } catch (e) {
       setStatus('error');
       setErrorMsg(e instanceof Error ? e.message : 'No se pudieron cargar los reportes.');
     }
-  }, [filter, renderMarkers]);
+  }, [renderMarkers]);
+
+  useEffect(() => {
+    async function loadProfile() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.rpc('ensure_my_profile');
+      const p = data as Profile | null;
+      if (p) setProfileName(`${p.nombre} ${p.apellidos}`);
+    }
+    loadProfile();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,8 +208,8 @@ export function IncidentsMap() {
   }, [loadIncidents]);
 
   useEffect(() => {
-    if (LRef.current) renderMarkers(LRef.current, visibleIncidents);
-  }, [visibleIncidents, renderMarkers]);
+    if (LRef.current) renderMarkers(LRef.current, incidents);
+  }, [incidents, renderMarkers]);
 
   function handleLikeChange(id: string, likes: number, liked: boolean) {
     setIncidents((prev) =>
@@ -208,103 +229,116 @@ export function IncidentsMap() {
     setSelected(incident);
   }
 
-  async function recenter() {
-    const location = await resolveLocation();
-    setCoords(location);
-    mapRef.current?.setView([location.lat, location.lng], 16);
-    userMarkerRef.current?.setLatLng([location.lat, location.lng]);
+  function focusIncident(inc: Incident) {
+    setSelected(inc);
+    mapRef.current?.setView([inc.lat, inc.lng], 17);
   }
-
-  const filterCounts = useMemo(() => {
-    const counts: Record<FilterKey, number> = {
-      all: incidents.length,
-      robo: 0,
-      accidente: 0,
-      infraestructura: 0,
-      panico: 0,
-    };
-    for (const i of incidents) counts[i.type]++;
-    return counts;
-  }, [incidents]);
 
   return (
     <div className="web-app">
       <header className="web-app-header">
         <HermesLogoLockup size={28} />
-        <nav className="web-app-nav">
-          <Link href="/mapa" className="web-app-nav-active">Mapa</Link>
-          <Link href="/">Acerca de</Link>
-          <Link href="/perfil">Perfil</Link>
-        </nav>
-        <Link href="/perfil" className="web-app-profile" aria-label="Mi perfil">
-          <HAvatar name="UTEQ" size={36} />
-        </Link>
+        <div className="web-app-header-actions">
+          <HButton onClick={() => { setSelected(null); setReportOpen(true); }}>
+            + Nuevo reporte
+          </HButton>
+          <button
+            type="button"
+            className="web-app-avatar-btn"
+            onClick={() => setProfileOpen(true)}
+            aria-label="Mi perfil"
+          >
+            <ProfileAvatar name={profileName} size={40} />
+          </button>
+        </div>
       </header>
 
       <div className="web-app-body">
-        <aside className="web-sidebar">
-          <div className="web-sidebar-head">
-            <h2>Reportes del campus</h2>
-            <p>{incidents.length} alertas activas</p>
-          </div>
+        {panelOpen && (
+          <aside className="web-sidebar web-alerts-panel">
+            <div className="web-sidebar-head">
+              <div>
+                <h2>Alertas cercanas</h2>
+                <p>{incidents.length} activas · más cerca primero</p>
+              </div>
+              <button
+                type="button"
+                className="web-panel-toggle"
+                onClick={() => setPanelOpen(false)}
+                aria-label="Ocultar panel"
+              >
+                ‹
+              </button>
+            </div>
 
-          <p className="web-sidebar-label">FILTRAR POR TIPO</p>
-          <ul className="web-filter-list">
-            {FILTERS.map((f) => {
-              const active = filter === f.key;
-              const count = filterCounts[f.key];
-              return (
-                <li key={f.key}>
-                  <button
-                    type="button"
-                    className={`web-filter-item${active ? ' web-filter-item-active' : ''}`}
-                    onClick={() => setFilter(f.key)}
-                  >
-                    <span
-                      className="web-filter-glyph"
-                      style={f.color ? { backgroundColor: `${f.color}18`, color: f.color } : undefined}
+            <ul className="web-alerts-list">
+              {sortedAlerts.length === 0 && status === 'ready' && (
+                <li className="web-alerts-empty">No hay alertas en el campus</li>
+              )}
+              {sortedAlerts.map((inc, idx) => {
+                const meta = CATEGORY[inc.type];
+                const active = selected?.id === inc.id;
+                return (
+                  <li key={inc.id}>
+                    <button
+                      type="button"
+                      className={`web-alert-item${active ? ' web-alert-item-active' : ''}`}
+                      onClick={() => focusIncident(inc)}
                     >
-                      {f.glyph}
-                    </span>
-                    <span className="web-filter-text">
-                      <strong>{f.label}</strong>
-                      <small>{count} reporte{count !== 1 ? 's' : ''}</small>
-                    </span>
-                    {f.color && <span className="web-filter-dot" style={{ backgroundColor: f.color }} />}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                      <span className="web-alert-rank">{idx + 1}</span>
+                      <span
+                        className="web-alert-glyph"
+                        style={{ backgroundColor: meta.bg, color: meta.color }}
+                      >
+                        {meta.glyph}
+                      </span>
+                      <span className="web-alert-body">
+                        <strong>{INCIDENT_LABELS[inc.type]}</strong>
+                        <span>
+                          {inc.description
+                            ? inc.description.slice(0, 48) + (inc.description.length > 48 ? '…' : '')
+                            : 'Sin descripción'}
+                        </span>
+                        <small>
+                          {formatDistance(inc.distanceM)} · {timeAgo(inc.created_at)}
+                        </small>
+                      </span>
+                      {inc.likes_count > 0 && (
+                        <span className="web-alert-likes">{inc.likes_count}</span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
 
-          <div className="web-sidebar-actions">
-            <HButton full onClick={() => { setSelected(null); setReportOpen(true); }}>
-              + Nuevo reporte
-            </HButton>
-            <div className="web-sidebar-tools">
-              <button type="button" className="web-tool-btn" onClick={recenter} aria-label="Centrar ubicación">
-                <GpsIcon /> Mi ubicación
-              </button>
-              <button type="button" className="web-tool-btn" onClick={loadIncidents} aria-label="Actualizar">
-                <RefreshIcon /> Actualizar
-              </button>
-            </div>
-          </div>
-
-          {selected && (
-            <div className="web-sidebar-detail">
-              <IncidentCard
-                incident={selected}
-                onClose={() => setSelected(null)}
-                onLikeChange={handleLikeChange}
-                variant="sidebar"
-              />
-            </div>
-          )}
-        </aside>
+            {selected && (
+              <div className="web-sidebar-detail">
+                <IncidentCard
+                  incident={selected}
+                  onClose={() => setSelected(null)}
+                  onLikeChange={handleLikeChange}
+                  variant="sidebar"
+                />
+              </div>
+            )}
+          </aside>
+        )}
 
         <main className="web-map-area">
           <div ref={mapEl} className="web-map-canvas" />
+
+          {!panelOpen && (
+            <button
+              type="button"
+              className="web-panel-reopen"
+              onClick={() => setPanelOpen(true)}
+              aria-label="Mostrar alertas"
+            >
+              Alertas ({incidents.length})
+            </button>
+          )}
+
           {status === 'loading' && (
             <div className="web-map-overlay">
               <span className="map-spinner" />
@@ -327,6 +361,8 @@ export function IncidentsMap() {
           loadIncidents();
         }}
       />
+
+      <ProfileDrawer open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 }
