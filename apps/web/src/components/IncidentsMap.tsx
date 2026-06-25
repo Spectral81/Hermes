@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { GoogleMap, MarkerF, useJsApiLoader } from '@react-google-maps/api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Incident, IncidentType } from '@uteq/shared';
 import { IncidentCard } from '@/components/IncidentCard';
 import { ReportSheet } from '@/components/ReportSheet';
@@ -13,8 +12,9 @@ import { HermesLogoLockup } from '@/components/ui/HermesLogo';
 import { fetchIncidents } from '@/lib/incidents';
 import { CATEGORY } from '@/lib/theme';
 
-const UTEQ_CENTER = { lat: 20.6534, lng: -100.4045 };
-const MAP_STYLE = { width: '100%', height: '100%' };
+const UTEQ_CENTER: [number, number] = [20.6534, -100.4045];
+const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 
 type FilterKey = 'all' | IncidentType;
 
@@ -26,19 +26,59 @@ const FILTERS: { key: FilterKey; label: string; color?: string; glyph?: string }
   { key: 'panico', label: 'SOS', color: CATEGORY.panico.color, glyph: CATEGORY.panico.glyph },
 ];
 
-function markerSvg(type: IncidentType): string {
+function loadLeaflet(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const w = window as any;
+    if (w.L) return resolve(w.L);
+
+    if (!document.querySelector(`link[href="${LEAFLET_CSS}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = LEAFLET_CSS;
+      document.head.appendChild(link);
+    }
+
+    const existing = document.querySelector(`script[src="${LEAFLET_JS}"]`) as HTMLScriptElement | null;
+    if (existing) {
+      existing.addEventListener('load', () => resolve(w.L));
+      existing.addEventListener('error', reject);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = LEAFLET_JS;
+    script.async = true;
+    script.onload = () => resolve(w.L);
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+function markerIcon(L: any, type: IncidentType, likes: number) {
   const cat = CATEGORY[type];
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="50" viewBox="0 0 32 40">
-      <path d="M16 0 C7 0 0 7 0 16 C0 26 16 40 16 40 C16 40 32 26 32 16 C32 7 25 0 16 0 Z" fill="${cat.color}"/>
-      <circle cx="16" cy="14" r="9" fill="#fff"/>
-      <text x="16" y="18.5" text-anchor="middle" fill="${cat.color}" font-weight="800" font-size="13">${cat.glyph}</text>
-    </svg>
-  `)}`;
+  const badge =
+    likes > 0
+      ? `<span class="map-pin-badge">${likes > 99 ? '99+' : likes}</span>`
+      : '';
+  const html = `
+    <div class="map-pin-wrap">
+      <svg width="40" height="50" viewBox="0 0 32 40" aria-hidden="true">
+        <path d="M16 0 C7 0 0 7 0 16 C0 26 16 40 16 40 C16 40 32 26 32 16 C32 7 25 0 16 0 Z" fill="${cat.color}"/>
+        <circle cx="16" cy="14" r="9" fill="#fff"/>
+        <text x="16" y="18.5" text-anchor="middle" fill="${cat.color}" font-weight="800" font-size="13">${cat.glyph}</text>
+      </svg>
+      ${badge}
+    </div>`;
+  return L.divIcon({
+    html,
+    className: '',
+    iconSize: [60, 70],
+    iconAnchor: [30, 70],
+  });
 }
 
 async function resolveLocation(): Promise<{ lat: number; lng: number }> {
-  const fallback = UTEQ_CENTER;
+  const fallback = { lat: UTEQ_CENTER[0], lng: UTEQ_CENTER[1] };
   if (!navigator.geolocation) return fallback;
 
   return new Promise((resolve) => {
@@ -51,15 +91,15 @@ async function resolveLocation(): Promise<{ lat: number; lng: number }> {
 }
 
 export function IncidentsMap() {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? '';
-  const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: apiKey,
-  });
+  const mapEl = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const layerRef = useRef<any>(null);
+  const userMarkerRef = useRef<any>(null);
+  const LRef = useRef<any>(null);
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selected, setSelected] = useState<Incident | null>(null);
-  const [coords, setCoords] = useState(UTEQ_CENTER);
-  const [mapCenter, setMapCenter] = useState(UTEQ_CENTER);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -70,24 +110,85 @@ export function IncidentsMap() {
     [incidents, filter],
   );
 
+  const renderMarkers = useCallback((L: any, list: Incident[]) => {
+    const layer = layerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    for (const inc of list) {
+      if (!Number.isFinite(inc.lat) || !Number.isFinite(inc.lng)) continue;
+      const marker = L.marker([inc.lat, inc.lng], {
+        icon: markerIcon(L, inc.type, inc.likes_count),
+      });
+      marker.on('click', () => setSelected(inc));
+      marker.addTo(layer);
+    }
+  }, []);
+
   const loadIncidents = useCallback(async () => {
     try {
       const data = await fetchIncidents();
       setIncidents(data);
+      if (LRef.current) renderMarkers(LRef.current, filter === 'all' ? data : data.filter((i) => i.type === filter));
       setStatus('ready');
     } catch (e) {
       setStatus('error');
       setErrorMsg(e instanceof Error ? e.message : 'No se pudieron cargar los reportes.');
     }
-  }, []);
+  }, [filter, renderMarkers]);
 
   useEffect(() => {
-    resolveLocation().then((loc) => {
-      setCoords(loc);
-      setMapCenter(loc);
-    });
-    loadIncidents();
+    let cancelled = false;
+
+    async function init() {
+      try {
+        const L = await loadLeaflet();
+        if (cancelled || !mapEl.current || mapRef.current) return;
+        LRef.current = L;
+
+        const location = await resolveLocation();
+        if (!cancelled) setCoords(location);
+
+        const map = L.map(mapEl.current).setView([location.lat, location.lng], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap',
+        }).addTo(map);
+
+        mapRef.current = map;
+        layerRef.current = L.layerGroup().addTo(map);
+
+        userMarkerRef.current = L.circleMarker([location.lat, location.lng], {
+          radius: 9,
+          color: '#3B82F6',
+          fillColor: '#3B82F6',
+          fillOpacity: 0.9,
+          weight: 3,
+        }).addTo(map);
+
+        map.on('click', () => setSelected(null));
+
+        await loadIncidents();
+      } catch (e) {
+        if (!cancelled) {
+          setStatus('error');
+          setErrorMsg(e instanceof Error ? e.message : 'No se pudo cargar el mapa.');
+        }
+      }
+    }
+
+    init();
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
   }, [loadIncidents]);
+
+  useEffect(() => {
+    if (LRef.current) renderMarkers(LRef.current, visibleIncidents);
+  }, [visibleIncidents, renderMarkers]);
 
   function handleLikeChange(id: string, likes: number, liked: boolean) {
     setIncidents((prev) =>
@@ -103,14 +204,15 @@ export function IncidentsMap() {
       if (prev.some((i) => i.id === incident.id)) return prev;
       return [incident, ...prev];
     });
-    setMapCenter({ lat: incident.lat, lng: incident.lng });
+    mapRef.current?.setView([incident.lat, incident.lng], 17);
     setSelected(incident);
   }
 
   async function recenter() {
     const location = await resolveLocation();
     setCoords(location);
-    setMapCenter(location);
+    mapRef.current?.setView([location.lat, location.lng], 16);
+    userMarkerRef.current?.setLatLng([location.lat, location.lng]);
   }
 
   const filterCounts = useMemo(() => {
@@ -202,56 +304,7 @@ export function IncidentsMap() {
         </aside>
 
         <main className="web-map-area">
-          {!apiKey && (
-            <div className="web-map-fallback">
-              <p>Configura <code>NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> en Railway para ver Google Maps.</p>
-            </div>
-          )}
-          {apiKey && loadError && (
-            <div className="web-map-fallback">
-              <p>No se pudo cargar Google Maps. Verifica la API key.</p>
-            </div>
-          )}
-          {apiKey && isLoaded && (
-            <GoogleMap
-              mapContainerStyle={MAP_STYLE}
-              center={mapCenter}
-              zoom={16}
-              onClick={() => setSelected(null)}
-              options={{
-                disableDefaultUI: false,
-                zoomControl: true,
-                streetViewControl: false,
-                mapTypeControl: false,
-                fullscreenControl: true,
-              }}
-            >
-              <MarkerF
-                position={coords}
-                icon={{
-                  path: google.maps.SymbolPath.CIRCLE,
-                  scale: 9,
-                  fillColor: '#3B82F6',
-                  fillOpacity: 1,
-                  strokeColor: '#fff',
-                  strokeWeight: 3,
-                }}
-                title="Tu ubicación"
-              />
-              {visibleIncidents.map((inc) => (
-                <MarkerF
-                  key={inc.id}
-                  position={{ lat: inc.lat, lng: inc.lng }}
-                  icon={{
-                    url: markerSvg(inc.type),
-                    scaledSize: new google.maps.Size(40, 50),
-                    anchor: new google.maps.Point(20, 50),
-                  }}
-                  onClick={() => setSelected(inc)}
-                />
-              ))}
-            </GoogleMap>
-          )}
+          <div ref={mapEl} className="web-map-canvas" />
           {status === 'loading' && (
             <div className="web-map-overlay">
               <span className="map-spinner" />
