@@ -70,19 +70,22 @@ function AuthCallbackContent() {
 
   if (error) {
     return (
-      <main className="auth-page">
-        <div className="auth-card">
-          <div className="alert alert-error">{error}</div>
-          <Link href="/login" className="btn-primary btn-link">Ir a login</Link>
+      <main className="hermes-auth-page">
+        <div className="hermes-auth-shell">
+          <div className="hermes-alert-error">{error}</div>
+          <Link href="/login" className="hermes-btn hermes-btn-primary hermes-btn-full hermes-btn-link">
+            Ir a login
+          </Link>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="auth-page">
-      <div className="auth-card">
-        <p>Confirmando correo…</p>
+    <main className="hermes-auth-page">
+      <div className="hermes-auth-shell" style={{ textAlign: 'center' }}>
+        <span className="map-spinner" />
+        <p style={{ marginTop: 16, color: '#6b7280' }}>Confirmando correo…</p>
       </div>
     </main>
   );
