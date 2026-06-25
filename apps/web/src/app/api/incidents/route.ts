@@ -20,16 +20,33 @@ function normalizeIncident(raw: Record<string, unknown>) {
   };
 }
 
+async function listIncidentsFromDb() {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('incidents')
+    .select(
+      'id, type, category, severity, description, lat, lng, status, likes_count, created_at, created_by, profiles(nombre)',
+    )
+    .neq('status', 'cerrado')
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as Record<string, unknown>[]).map((row) => {
+    const profiles = row.profiles as { nombre?: string } | { nombre?: string }[] | null;
+    const author = Array.isArray(profiles) ? profiles[0] : profiles;
+    return normalizeIncident({
+      ...row,
+      author_nombre: author?.nombre ?? null,
+    });
+  });
+}
+
 export async function GET() {
   try {
-    const admin = createAdminClient();
-    const { data, error } = await admin.rpc('list_incidents');
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json(
-      ((data ?? []) as Record<string, unknown>[]).map(normalizeIncident),
-    );
+    const incidents = await listIncidentsFromDb();
+    return NextResponse.json(incidents);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Error al cargar reportes.' },

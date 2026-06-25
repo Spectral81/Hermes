@@ -34,7 +34,6 @@ const FILTERS: { key: FilterKey; label: string; color?: string }[] = [
   { key: 'robo', label: 'Robos', color: CATEGORY.robo.color },
   { key: 'accidente', label: 'Accidentes', color: CATEGORY.accidente.color },
   { key: 'infraestructura', label: 'Fallas', color: CATEGORY.infraestructura.color },
-  { key: 'panico', label: 'SOS', color: CATEGORY.panico.color },
 ];
 
 async function resolveLocation(): Promise<{ lat: number; lng: number }> {
@@ -256,15 +255,13 @@ export default function HomeScreen() {
           onLikeChange={handleLikeChange}
         />
       ) : (
-        <View style={styles.bottomBar} pointerEvents="box-none">
-          <Pressable style={styles.sosBtn} onPress={() => openReport('panico')}>
-            <View style={styles.sosDot} />
-            <Text style={styles.sosText}>EMERGENCIA SOS</Text>
-          </Pressable>
-          <Pressable style={styles.reportFab} onPress={() => openReport(null)}>
-            <MaterialCommunityIcons name="plus" size={28} color="#fff" />
-          </Pressable>
-        </View>
+        <Pressable
+          style={styles.reportFab}
+          onPress={() => openReport(null)}
+          accessibilityLabel="Nuevo reporte"
+        >
+          <MaterialCommunityIcons name="plus" size={26} color="#fff" />
+        </Pressable>
       )}
 
       <ReportSheet
@@ -350,48 +347,20 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     ...SHADOW.card,
   },
-  bottomBar: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  sosBtn: {
-    flex: 1,
-    height: 58,
-    borderRadius: 18,
-    backgroundColor: HERMES.redIntense,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    shadowColor: HERMES.redIntense,
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  sosDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#fff',
-  },
-  sosText: { color: '#fff', fontSize: 15, fontWeight: '800', letterSpacing: 1 },
   reportFab: {
-    width: 58,
-    height: 58,
-    borderRadius: 20,
+    position: 'absolute',
+    right: 16,
+    bottom: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     backgroundColor: HERMES.blue,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: HERMES.blue,
     shadowOpacity: 0.4,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
 });

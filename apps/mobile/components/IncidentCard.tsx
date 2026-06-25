@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 36,
+    bottom: 20,
     backgroundColor: '#fff',
     borderRadius: 18,
     padding: 16,
