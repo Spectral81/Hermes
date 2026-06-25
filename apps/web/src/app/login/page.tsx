@@ -8,6 +8,7 @@ import { HButton } from '@/components/ui/HButton';
 import { HInput } from '@/components/ui/HInput';
 import { EyeIcon, LockIcon, MailIcon } from '@/components/ui/icons';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
+import { requestUserLocation, saveUserLocation } from '@/lib/geolocation';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,6 +46,9 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
+
+      const location = await requestUserLocation();
+      if (location) saveUserLocation(location);
 
       router.push('/mapa');
       router.refresh();
@@ -118,6 +122,10 @@ export default function LoginPage() {
 
         <p className="hermes-auth-footer">
           ¿Eres nuevo? <Link href="/register">Crea una cuenta</Link>
+        </p>
+
+        <p className="hermes-auth-footer">
+          <Link href="/mapa">Entrar al mapa sin iniciar sesión</Link>
         </p>
       </div>
     </main>

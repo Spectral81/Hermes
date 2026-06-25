@@ -2123,6 +2123,41 @@ body {
   background: #fef2f2;
 }
 
+.web-map-location-prompt {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  width: min(420px, calc(100% - 32px));
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.15);
+}
+
+.web-map-location-prompt p {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.45;
+}
+
+.web-map-location-hint {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 500;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
 /* Panel de alertas colapsable */
 .web-alerts-panel {
   width: 360px;

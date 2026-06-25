@@ -14,6 +14,11 @@ import { HButton } from '@/components/ui/HButton';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
 import { distanceMeters, formatDistance } from '@/lib/geo';
+import {
+  readStoredUserLocation,
+  requestUserLocation,
+  saveUserLocation,
+} from '@/lib/geolocation';
 import { fetchIncidents } from '@/lib/incidents';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY } from '@/lib/theme';
@@ -78,16 +83,16 @@ function markerIcon(L: any, type: Incident['type'], likes: number) {
 }
 
 async function resolveLocation(): Promise<{ lat: number; lng: number }> {
-  const fallback = { lat: UTEQ_CENTER[0], lng: UTEQ_CENTER[1] };
-  if (!navigator.geolocation) return fallback;
+  const stored = readStoredUserLocation();
+  if (stored) return stored;
 
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(fallback),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
-    );
-  });
+  const live = await requestUserLocation();
+  if (live) {
+    saveUserLocation(live);
+    return live;
+  }
+
+  return { lat: UTEQ_CENTER[0], lng: UTEQ_CENTER[1] };
 }
 
 export function IncidentsMap() {
@@ -104,6 +109,7 @@ export function IncidentsMap() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'pending' | 'ready' | 'denied'>('pending');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -147,15 +153,48 @@ export function IncidentsMap() {
 
   useEffect(() => {
     async function loadProfile() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.rpc('ensure_my_profile');
-      const p = data as Profile | null;
-      if (p) setProfileName(`${p.nombre} ${p.apellidos}`);
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase.rpc('ensure_my_profile');
+        const p = data as Profile | null;
+        if (p) setProfileName(`${p.nombre} ${p.apellidos}`);
+      } catch {
+        // sin sesión activa
+      }
     }
     loadProfile();
   }, []);
+
+  const applyUserLocation = useCallback((location: { lat: number; lng: number }) => {
+    setCoords(location);
+    saveUserLocation(location);
+    setLocationStatus('ready');
+    if (mapRef.current) {
+      mapRef.current.setView([location.lat, location.lng], 16);
+    }
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([location.lat, location.lng]);
+    } else if (LRef.current && mapRef.current) {
+      userMarkerRef.current = LRef.current.circleMarker([location.lat, location.lng], {
+        radius: 9,
+        color: '#3B82F6',
+        fillColor: '#3B82F6',
+        fillOpacity: 0.9,
+        weight: 3,
+      }).addTo(mapRef.current);
+    }
+  }, []);
+
+  async function handleAllowLocation() {
+    const location = await requestUserLocation();
+    if (location) {
+      applyUserLocation(location);
+      return;
+    }
+    setLocationStatus('denied');
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -167,7 +206,14 @@ export function IncidentsMap() {
         LRef.current = L;
 
         const location = await resolveLocation();
-        if (!cancelled) setCoords(location);
+        if (!cancelled) {
+          setCoords(location);
+          const usedStored = Boolean(readStoredUserLocation());
+          const isCampus =
+            Math.abs(location.lat - UTEQ_CENTER[0]) < 0.0001 &&
+            Math.abs(location.lng - UTEQ_CENTER[1]) < 0.0001;
+          setLocationStatus(usedStored || !isCampus ? 'ready' : 'pending');
+        }
 
         const map = L.map(mapEl.current).setView([location.lat, location.lng], 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -346,6 +392,19 @@ export function IncidentsMap() {
           )}
           {status === 'error' && (
             <div className="web-map-overlay web-map-overlay-error">{errorMsg}</div>
+          )}
+
+          {locationStatus === 'pending' && status !== 'loading' && (
+            <div className="web-map-location-prompt">
+              <p>Permite el acceso a tu ubicación para centrar el mapa y ordenar alertas cercanas.</p>
+              <HButton onClick={handleAllowLocation}>Permitir mi ubicación</HButton>
+            </div>
+          )}
+
+          {locationStatus === 'denied' && (
+            <div className="web-map-location-hint">
+              Ubicación no disponible. Mostrando campus UTEQ.
+            </div>
           )}
         </main>
       </div>

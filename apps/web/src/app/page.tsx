@@ -37,7 +37,7 @@ export default function HomePage() {
           <a href="#nosotros">Nosotros</a>
           <a href="#mision">Misión</a>
           <a href="#app">La app</a>
-          <Link href="/login" className="hermes-landing-nav-cta">Iniciar sesión</Link>
+          <Link href="/mapa" className="hermes-landing-nav-cta">Ver mapa</Link>
         </nav>
       </header>
 
@@ -50,8 +50,8 @@ export default function HomePage() {
           <p className="hermes-landing-tagline">Tu comunidad segura en el campus UTEQ</p>
           <span className="hermes-welcome-pill">UTEQ · QUERÉTARO</span>
           <div className="hermes-landing-hero-actions">
-            <Link href="/login" className="hermes-welcome-btn-primary">Iniciar sesión</Link>
-            <Link href="/register" className="hermes-welcome-btn-outline">Crear cuenta</Link>
+            <Link href="/mapa" className="hermes-welcome-btn-primary">Ver mapa del campus</Link>
+            <Link href="/login" className="hermes-welcome-btn-outline">Iniciar sesión</Link>
           </div>
           <p className="hermes-landing-note">Solo para estudiantes y staff con correo @uteq.edu.mx</p>
         </div>
