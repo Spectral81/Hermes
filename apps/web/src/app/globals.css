@@ -1635,3 +1635,510 @@ body {
   justify-content: center;
   font-size: 1.75rem;
 }
+
+/* ─── Landing institucional ─── */
+.hermes-landing {
+  background: #f9fafb;
+  color: #0f172a;
+}
+
+.hermes-landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid #e5e7eb;
+  backdrop-filter: blur(8px);
+}
+
+.hermes-landing-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.hermes-landing-nav-links a {
+  color: #374151;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.hermes-landing-nav-links a:hover {
+  color: #3b82f6;
+}
+
+.hermes-landing-nav-cta {
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: #3b82f6 !important;
+  color: #fff !important;
+}
+
+.hermes-landing-hero {
+  background: linear-gradient(160deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #fff;
+  padding: 64px 24px 80px;
+  text-align: center;
+}
+
+.hermes-landing-hero-inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.hermes-landing-hero h1 {
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  margin: 20px 0 0;
+}
+
+.hermes-landing-tagline {
+  margin: 8px 0 0;
+  font-size: 1.05rem;
+  opacity: 0.9;
+}
+
+.hermes-landing-hero-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.hermes-landing-hero-actions .hermes-welcome-btn-primary,
+.hermes-landing-hero-actions .hermes-welcome-btn-outline {
+  min-width: 180px;
+}
+
+.hermes-landing-note {
+  margin-top: 16px;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.hermes-landing-section {
+  padding: 72px 24px;
+}
+
+.hermes-landing-section-alt {
+  background: #fff;
+}
+
+.hermes-landing-container {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.hermes-landing-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #3b82f6;
+  margin: 0 0 12px;
+}
+
+.hermes-landing-section h2 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 16px;
+}
+
+.hermes-landing-lead {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #4b5563;
+  max-width: 720px;
+}
+
+.hermes-landing-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.hermes-landing-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 28px;
+}
+
+.hermes-landing-card h3 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin: 0 0 12px;
+  letter-spacing: -0.02em;
+}
+
+.hermes-landing-card p {
+  color: #4b5563;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.hermes-landing-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.hermes-landing-value-pill {
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.hermes-landing-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 32px;
+}
+
+.hermes-landing-feature {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.hermes-landing-feature-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+.hermes-landing-feature h3 {
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.hermes-landing-feature p {
+  font-size: 0.9rem;
+  color: #6b7280;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.hermes-landing-footer {
+  background: #1d4ed8;
+  color: #fff;
+  padding: 40px 24px;
+}
+
+.hermes-landing-footer-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.hermes-landing-footer p {
+  opacity: 0.8;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.hermes-landing-footer-links {
+  display: flex;
+  gap: 20px;
+}
+
+.hermes-landing-footer-links a {
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  opacity: 0.9;
+}
+
+/* ─── Web dashboard (mapa) ─── */
+.web-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background: #f3f4f6;
+  overflow: hidden;
+}
+
+.web-app-header {
+  height: 60px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 0 20px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.web-app-nav {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+}
+
+.web-app-nav a {
+  color: #6b7280;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 6px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.web-app-nav a:hover {
+  color: #3b82f6;
+}
+
+.web-app-nav-active {
+  color: #3b82f6 !important;
+  border-bottom-color: #3b82f6 !important;
+}
+
+.web-app-profile {
+  text-decoration: none;
+}
+
+.web-app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.web-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.web-sidebar-head {
+  padding: 20px 20px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.web-sidebar-head h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.web-sidebar-head p {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 4px 0 0;
+}
+
+.web-sidebar-label {
+  padding: 16px 20px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.web-filter-list {
+  list-style: none;
+  padding: 0 12px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.web-filter-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.web-filter-item:hover {
+  background: #f9fafb;
+}
+
+.web-filter-item-active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.web-filter-glyph {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #f3f4f6;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.web-filter-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.web-filter-text strong {
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.web-filter-text small {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.web-filter-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.web-sidebar-actions {
+  padding: 16px 20px;
+  margin-top: auto;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.web-sidebar-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.web-tool-btn {
+  height: 40px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #374151;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.web-tool-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.web-sidebar-detail {
+  padding: 0 12px 16px;
+}
+
+.incident-card-sidebar {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  box-shadow: none;
+  border: 1px solid #e5e7eb;
+  margin-top: 8px;
+}
+
+.web-map-area {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.web-map-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.web-map-overlay {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.web-map-overlay-error {
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+@media (max-width: 900px) {
+  .hermes-landing-grid-2,
+  .hermes-landing-features {
+    grid-template-columns: 1fr;
+  }
+
+  .hermes-landing-nav-links a:not(.hermes-landing-nav-cta) {
+    display: none;
+  }
+
+  .web-app-body {
+    flex-direction: column;
+  }
+
+  .web-sidebar {
+    width: 100%;
+    max-height: 42vh;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .web-map-area {
+    min-height: 50vh;
+  }
+}

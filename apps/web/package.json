@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@react-google-maps/api": "^2.20.8",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",
     "@types/node": "^22.15.21",
@@ -19,5 +20,8 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/google.maps": "^3.58.1"
   }
 }

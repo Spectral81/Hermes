@@ -17,9 +17,10 @@ interface Props {
   incident: Incident;
   onClose: () => void;
   onLikeChange: (id: string, likes: number, liked: boolean) => void;
+  variant?: 'overlay' | 'sidebar';
 }
 
-export function IncidentCard({ incident, onClose, onLikeChange }: Props) {
+export function IncidentCard({ incident, onClose, onLikeChange, variant = 'overlay' }: Props) {
   const [busy, setBusy] = useState(false);
   const meta = CATEGORY[incident.type];
 
@@ -44,7 +45,7 @@ export function IncidentCard({ incident, onClose, onLikeChange }: Props) {
   }
 
   return (
-    <div className="incident-card">
+    <div className={variant === 'sidebar' ? 'incident-card incident-card-sidebar' : 'incident-card'}>
       <button type="button" className="incident-card-close" onClick={onClose} aria-label="Cerrar">
         <CloseIcon />
       </button>

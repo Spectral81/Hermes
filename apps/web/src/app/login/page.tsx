@@ -6,7 +6,7 @@ import { FormEvent, useState } from 'react';
 import { getAuthErrorMessage, validateLogin } from '@uteq/shared';
 import { HButton } from '@/components/ui/HButton';
 import { HInput } from '@/components/ui/HInput';
-import { EyeIcon, FaceIcon, FingerprintIcon, LockIcon, MailIcon } from '@/components/ui/icons';
+import { EyeIcon, LockIcon, MailIcon } from '@/components/ui/icons';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
 
 export default function LoginPage() {
@@ -115,21 +115,6 @@ export default function LoginPage() {
             Iniciar sesión
           </HButton>
         </form>
-
-        <div className="hermes-divider">
-          <span />
-          <p>O CONTINÚA CON</p>
-          <span />
-        </div>
-
-        <div className="hermes-bio-row">
-          <button type="button" className="hermes-bio-btn" onClick={() => alert('Próximamente')}>
-            <FingerprintIcon /> Huella
-          </button>
-          <button type="button" className="hermes-bio-btn" onClick={() => alert('Próximamente')}>
-            <FaceIcon /> Face ID
-          </button>
-        </div>
 
         <p className="hermes-auth-footer">
           ¿Eres nuevo? <Link href="/register">Crea una cuenta</Link>
