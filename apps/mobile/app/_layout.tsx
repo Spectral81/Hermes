@@ -18,7 +18,7 @@ function AuthGate() {
     if (!session && !inAuthGroup) {
       router.replace('/(auth)');
     } else if (session && inAuthGroup) {
-      router.replace('/(app)/home');
+      router.replace('/(app)/(tabs)/home');
     }
   }, [session, loading, segments, router]);
 

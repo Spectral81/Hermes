@@ -184,7 +184,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Header flotante */}
       <View style={styles.topBar} pointerEvents="box-none">
         <View style={styles.headerPill}>
           <MaterialCommunityIcons name="shield-check" size={20} color={HERMES.blue} />
@@ -199,12 +198,11 @@ export default function HomeScreen() {
             <Text style={styles.liveText}>EN VIVO</Text>
           </View>
         </View>
-        <Pressable onPress={() => router.push('/(app)/profile')}>
+        <Pressable onPress={() => router.push('/(app)/(tabs)/profile')}>
           <HAvatar name="UTEQ" size={48} />
         </Pressable>
       </View>
 
-      {/* Chips de filtro */}
       <View style={styles.chipsWrap} pointerEvents="box-none">
         <ScrollView
           horizontal
@@ -232,7 +230,6 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* FAB derecho */}
       <View style={styles.rightStack} pointerEvents="box-none">
         <Pressable style={styles.miniFab} onPress={recenter}>
           <MaterialCommunityIcons name="crosshairs-gps" size={22} color={HERMES.gray700} />

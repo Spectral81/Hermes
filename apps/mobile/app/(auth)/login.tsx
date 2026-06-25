@@ -50,7 +50,7 @@ export default function LoginScreen() {
       return;
     }
 
-    router.replace('/(app)/home');
+    router.replace('/(app)/(tabs)/home');
   }
 
   function showComingSoon(feature: string) {

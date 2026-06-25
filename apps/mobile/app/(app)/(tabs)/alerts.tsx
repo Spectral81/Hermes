@@ -139,7 +139,7 @@ export default function AlertsListScreen() {
               <Pressable
                 key={incident.id}
                 style={styles.card}
-                onPress={() => router.push(`/(app)/alerts/${incident.id}`)}
+                onPress={() => router.push(`/(app)/alert/${incident.id}`)}
               >
                 <View style={[styles.accent, { backgroundColor: meta.color }]} />
                 <View style={[styles.glyph, { backgroundColor: meta.bg }]}>

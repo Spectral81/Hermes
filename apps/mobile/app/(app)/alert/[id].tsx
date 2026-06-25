@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -27,7 +27,6 @@ import { CATEGORY, HERMES, SHADOW } from '@/lib/theme';
 export default function AlertDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [incident, setIncident] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,12 +47,6 @@ export default function AlertDetailScreen() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    const parent = navigation.getParent();
-    parent?.setOptions({ tabBarStyle: { display: 'none' } });
-    return () => parent?.setOptions({ tabBarStyle: undefined });
-  }, [navigation]);
 
   async function handleLike() {
     if (!incident || busy) return;

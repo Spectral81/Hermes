@@ -135,7 +135,7 @@ export default function ProfileScreen() {
             {myIncidents.slice(0, 5).map((r) => {
               const meta = CATEGORY[r.type];
               return (
-                <Pressable key={r.id} onPress={() => router.push(`/(app)/alerts/${r.id}`)}>
+                <Pressable key={r.id} onPress={() => router.push(`/(app)/alert/${r.id}`)}>
                   <HCard accent={meta.color} padding={12}>
                     <View style={styles.reportRow}>
                       <View style={[styles.reportGlyph, { backgroundColor: meta.bg }]}>

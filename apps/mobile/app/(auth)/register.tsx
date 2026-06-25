@@ -128,7 +128,7 @@ export default function RegisterScreen() {
         return;
       }
 
-      router.replace('/(app)/home');
+      router.replace('/(app)/(tabs)/home');
       setLoading(false);
       return;
     }
@@ -168,7 +168,7 @@ export default function RegisterScreen() {
       return;
     }
 
-    router.replace('/(app)/home');
+    router.replace('/(app)/(tabs)/home');
   }
 
   return (
