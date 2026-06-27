@@ -1,3 +1,4 @@
+import { toAuthErrorMessage } from '@uteq/shared';
 import Constants from 'expo-constants';
 
 export function getWebApiUrl(): string | null {
@@ -36,7 +37,7 @@ export async function registerViaWebApi(
     ok?: boolean;
     autoLogin?: boolean;
     email?: string;
-    error?: string;
+    error?: unknown;
     code?: string;
   } | null = null;
 
@@ -47,7 +48,14 @@ export async function registerViaWebApi(
   }
 
   if (!res.ok) {
-    return { ok: false, error: result?.error ?? `Error del servidor (HTTP ${res.status}).`, code: result?.code };
+    return {
+      ok: false,
+      error: toAuthErrorMessage(
+        result?.error ?? result,
+        `Error del servidor (HTTP ${res.status}).`,
+      ),
+      code: result?.code,
+    };
   }
 
   return { ok: true, autoLogin: result?.autoLogin, email: result?.email };

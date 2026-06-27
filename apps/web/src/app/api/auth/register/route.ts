@@ -118,18 +118,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No se pudo crear el usuario.' }, { status: 500 });
   }
 
-  // Evita depender del correo de confirmación (límite ~2/hora en Supabase free)
-  const confirm = await confirmUserEmail(userId);
-  if (!confirm.ok) {
-    return NextResponse.json(
-      {
-        error: confirm.error ?? 'Registro creado pero no se pudo activar la cuenta.',
-        code: 'confirm_failed',
-        needsVerification: true,
-        email,
-      },
-      { status: 503 },
-    );
+  const alreadyConfirmed = Boolean(data.user?.email_confirmed_at);
+  if (!alreadyConfirmed) {
+    // Evita depender del correo de confirmación (límite ~2/hora en Supabase free)
+    const confirm = await confirmUserEmail(userId);
+    if (!confirm.ok) {
+      return NextResponse.json(
+        {
+          error: confirm.error ?? 'Registro creado pero no se pudo activar la cuenta.',
+          code: 'confirm_failed',
+          needsVerification: true,
+          email,
+        },
+        { status: 503 },
+      );
+    }
   }
 
   const cookieStore = await cookies();
@@ -152,11 +155,14 @@ export async function POST(request: Request) {
 
   const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
   if (signInError) {
+    const loginMsg =
+      signInError.message?.trim() ||
+      'Cuenta creada pero no se pudo iniciar sesión. Prueba iniciar sesión manualmente.';
     return NextResponse.json(
       {
-        error: signInError.message,
-        code: signInError.code,
-        needsVerification: true,
+        error: loginMsg,
+        code: signInError.code ?? 'login_after_register_failed',
+        needsVerification: loginMsg.includes('Email not confirmed'),
         email,
       },
       { status: 401 },

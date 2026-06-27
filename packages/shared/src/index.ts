@@ -148,16 +148,54 @@ export function isUteqEmail(email: string, domain = UTEQ_EMAIL_DOMAIN): boolean 
   return normalized.endsWith(`@${domain}`) && normalized.includes('@');
 }
 
+export function expectedUteqEmail(matricula: string, domain = UTEQ_EMAIL_DOMAIN): string {
+  return `${matricula.trim().toLowerCase()}@${domain}`;
+}
+
+export function emailMatchesMatricula(
+  email: string,
+  matricula: string,
+  domain = UTEQ_EMAIL_DOMAIN,
+): boolean {
+  const normalized = email.trim().toLowerCase();
+  const mat = matricula.trim();
+  if (!mat || !isUteqEmail(normalized, domain)) return false;
+  return normalized.split('@')[0] === mat.toLowerCase();
+}
+
+export const PASSWORD_RULES = [
+  { ok: (pw: string) => pw.length >= 8, label: '8 caracteres' },
+  { ok: (pw: string) => /[A-Z]/.test(pw), label: 'Mayúscula' },
+  { ok: (pw: string) => /[0-9]/.test(pw), label: 'Número' },
+  { ok: (pw: string) => /[^A-Za-z0-9]/.test(pw), label: 'Símbolo' },
+] as const;
+
+export function passwordRuleResults(password: string) {
+  return PASSWORD_RULES.map((rule) => ({ ...rule, passed: rule.ok(password) }));
+}
+
+export function validatePasswordStrength(password: string): string | null {
+  const failed = passwordRuleResults(password).filter((r) => !r.passed);
+  if (failed.length === 0) return null;
+  return `La contraseña debe incluir: ${failed.map((r) => r.label.toLowerCase()).join(', ')}.`;
+}
+
 export function validateRegister(input: RegisterInput, domain = UTEQ_EMAIL_DOMAIN): string | null {
   if (!input.matricula.trim()) return 'La matrícula es obligatoria.';
+  if (!/^\d{10}$/.test(input.matricula.trim())) return 'La matrícula debe tener 10 dígitos.';
   if (!input.nombre.trim()) return 'El nombre es obligatorio.';
   if (!input.apellidos.trim()) return 'Los apellidos son obligatorios.';
   if (!input.telefono.trim()) return 'El teléfono es obligatorio.';
+  if (!/^\d{10}$/.test(input.telefono.trim().replace(/\s/g, ''))) {
+    return 'El teléfono debe tener 10 dígitos.';
+  }
   if (!isUteqEmail(input.email, domain)) {
     return `Usa tu correo institucional @${domain}.`;
   }
-  if (input.password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
-  return null;
+  if (!emailMatchesMatricula(input.email, input.matricula, domain)) {
+    return `El correo debe coincidir con tu matrícula (ej. ${expectedUteqEmail(input.matricula, domain)}).`;
+  }
+  return validatePasswordStrength(input.password);
 }
 
 export function validateLogin(input: LoginInput): string | null {
@@ -208,9 +246,54 @@ export function formatAuthError(error: {
   code?: string;
   status?: number | null;
 }): string {
-  const main = getAuthErrorMessage(error.message ?? '');
+  const main = toAuthErrorMessage(error.message ?? error);
   const extra = [error.code, error.status ? `HTTP ${error.status}` : '']
     .filter(Boolean)
     .join(' · ');
   return extra && !main.includes(String(error.status ?? '')) ? `${main} (${extra})` : main;
+}
+
+/** Convierte respuestas de error (string, objeto Supabase, `{}`, etc.) en texto legible. */
+export function toAuthErrorMessage(
+  error: unknown,
+  fallback = 'Error desconocido. Revisa Supabase y las variables en Railway.',
+): string {
+  if (error == null) return fallback;
+
+  if (typeof error === 'string') {
+    const trimmed = error.trim();
+    if (!trimmed || trimmed === '{}' || trimmed === '[object Object]') return fallback;
+    return getAuthErrorMessage(trimmed);
+  }
+
+  if (error instanceof Error) {
+    return toAuthErrorMessage(error.message, fallback);
+  }
+
+  if (typeof error === 'object') {
+    const e = error as Record<string, unknown>;
+
+    if (typeof e.message === 'string' && e.message.trim()) {
+      return getAuthErrorMessage(e.message);
+    }
+
+    if (typeof e.error === 'string' && e.error.trim()) {
+      return getAuthErrorMessage(e.error);
+    }
+
+    if (e.error && typeof e.error === 'object') {
+      const nested = toAuthErrorMessage(e.error, '');
+      if (nested) return nested;
+    }
+
+    if (e.code === 'confirm_failed') {
+      return getAuthErrorMessage('Falta SUPABASE_SERVICE_ROLE_KEY en Railway.');
+    }
+
+    if (typeof e.code === 'string' && e.code.trim()) {
+      return `${fallback} (${e.code})`;
+    }
+  }
+
+  return fallback;
 }

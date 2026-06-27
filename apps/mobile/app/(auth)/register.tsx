@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getAuthErrorMessage, isUteqEmail, validateRegister } from '@uteq/shared';
+import { isUteqEmail, toAuthErrorMessage, validateRegister } from '@uteq/shared';
 import { supabase } from '@/lib/supabase';
 import {
   confirmRegistrationViaWebApi,
@@ -112,7 +112,7 @@ export default function RegisterScreen() {
     if (webApiUrl) {
       const apiResult = await registerViaWebApi(webApiUrl, payload);
       if (!apiResult.ok) {
-        setError(getAuthErrorMessage(apiResult.error ?? 'Error al registrarse.'));
+        setError(apiResult.error ?? 'Error al registrarse.');
         setLoading(false);
         return;
       }
@@ -123,7 +123,7 @@ export default function RegisterScreen() {
       });
 
       if (signInError) {
-        setError(getAuthErrorMessage(signInError.message));
+        setError(toAuthErrorMessage(signInError, 'No se pudo iniciar sesión tras el registro.'));
         setLoading(false);
         return;
       }
@@ -147,7 +147,7 @@ export default function RegisterScreen() {
     });
 
     if (authError) {
-      setError(getAuthErrorMessage(authError.message));
+      setError(toAuthErrorMessage(authError));
       setLoading(false);
       return;
     }
@@ -163,7 +163,12 @@ export default function RegisterScreen() {
     });
 
     if (signInError) {
-      router.replace({ pathname: '/(auth)/verify-email', params: { email } });
+      setError(
+        toAuthErrorMessage(
+          signInError,
+          'Cuenta creada. Si no puedes entrar, confirma el correo en Supabase o inicia sesión.',
+        ),
+      );
       setLoading(false);
       return;
     }
