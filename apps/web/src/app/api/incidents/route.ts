@@ -25,7 +25,7 @@ async function listIncidentsFromDb() {
   const { data, error } = await admin
     .from('incidents')
     .select(
-      'id, type, category, severity, description, lat, lng, status, likes_count, created_at, created_by, profiles(nombre)',
+      'id, type, category, severity, description, lat, lng, status, likes_count, created_at, created_by',
     )
     .neq('status', 'cerrado')
     .order('created_at', { ascending: false })
@@ -33,14 +33,23 @@ async function listIncidentsFromDb() {
 
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as Record<string, unknown>[]).map((row) => {
-    const profiles = row.profiles as { nombre?: string } | { nombre?: string }[] | null;
-    const author = Array.isArray(profiles) ? profiles[0] : profiles;
-    return normalizeIncident({
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const authorIds = [...new Set(rows.map((r) => String(r.created_by)).filter(Boolean))];
+
+  const namesById = new Map<string, string>();
+  if (authorIds.length > 0) {
+    const { data: profiles } = await admin.from('profiles').select('id, nombre').in('id', authorIds);
+    for (const profile of profiles ?? []) {
+      namesById.set(String(profile.id), profile.nombre);
+    }
+  }
+
+  return rows.map((row) =>
+    normalizeIncident({
       ...row,
-      author_nombre: author?.nombre ?? null,
-    });
-  });
+      author_nombre: namesById.get(String(row.created_by)) ?? null,
+    }),
+  );
 }
 
 export async function GET() {
