@@ -1,25 +1,16 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { createServerClient, type SetAllCookies } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { validateRegister } from '@uteq/shared';
-import { confirmUserEmail } from '@/lib/auth/confirm-user';
-
-function getRequestAppUrl(request: Request): string {
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
-  if (configured) return configured;
-
-  const host = request.headers.get('x-forwarded-host');
-  const proto = request.headers.get('x-forwarded-proto') ?? 'https';
-  if (host) return `${proto}://${host.split(',')[0].trim()}`;
-
-  return new URL(request.url).origin;
-}
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  createAuthUserWithAdmin,
+  prepareRegistrationSlots,
+} from '@/lib/auth/registration-slots';
 
 function isValidSupabaseUrl(url: string): boolean {
   try {
-    const host = new URL(url).hostname;
-    return host.endsWith('.supabase.co');
+    return new URL(url).hostname.endsWith('.supabase.co');
   } catch {
     return false;
   }
@@ -46,7 +37,7 @@ export async function POST(request: Request) {
   if (!key.startsWith('eyJ')) {
     return NextResponse.json(
       { error: 'NEXT_PUBLIC_SUPABASE_ANON_KEY incorrecta. Usa el anon JWT (eyJ...).' },
-      { status: 500 },
+      { status: 400 },
     );
   }
 
@@ -72,67 +63,51 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  const appUrl = getRequestAppUrl(request);
   const email = registerInput.email.trim().toLowerCase();
   const password = registerInput.password;
 
-  const anon = createClient(url, key);
+  const slot = await prepareRegistrationSlots(email, registerInput.matricula.trim());
+  if (!slot.ok) {
+    return NextResponse.json({ error: slot.error, code: 'already_registered' }, { status: slot.status });
+  }
 
-  let data;
-  let error;
+  let userId: string | undefined;
+
   try {
-    ({ data, error } = await anon.auth.signUp({
+    const admin = createAdminClient();
+    const { data: created, error: createError } = await createAuthUserWithAdmin(admin, {
       email,
       password,
-      options: {
-        data: {
-          matricula: registerInput.matricula.trim(),
-          nombre: registerInput.nombre.trim(),
-          apellidos: registerInput.apellidos.trim(),
-          telefono: registerInput.telefono.trim(),
-        },
-        emailRedirectTo: `${appUrl}/auth/callback?next=/mapa`,
-      },
-    }));
+      matricula: registerInput.matricula,
+      nombre: registerInput.nombre,
+      apellidos: registerInput.apellidos,
+      telefono: registerInput.telefono,
+    });
+
+    if (createError) {
+      const msg = createError.message ?? 'No se pudo crear el usuario.';
+      if (/already|registered|exists|duplicate/i.test(msg)) {
+        return NextResponse.json(
+          { error: 'Este correo ya está registrado. Inicia sesión.', code: 'already_registered' },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ error: msg, code: createError.code }, { status: 400 });
+    }
+
+    userId = created.user?.id;
   } catch (e) {
-    const detail = e instanceof Error ? e.message : 'Error de red';
     return NextResponse.json(
-      { error: `No se pudo conectar a Supabase (${detail}). URL en Railway: ${url}` },
-      { status: 502 },
+      {
+        error: e instanceof Error ? e.message : 'Falta SUPABASE_SERVICE_ROLE_KEY en Railway.',
+        code: 'confirm_failed',
+      },
+      { status: 503 },
     );
   }
 
-  if (error) {
-    return NextResponse.json(
-      { error: error.message, code: error.code, status: error.status },
-      { status: 400 },
-    );
-  }
-
-  if (data.user?.identities?.length === 0) {
-    return NextResponse.json({ error: 'Este correo ya está registrado.' }, { status: 409 });
-  }
-
-  const userId = data.user?.id;
   if (!userId) {
     return NextResponse.json({ error: 'No se pudo crear el usuario.' }, { status: 500 });
-  }
-
-  const alreadyConfirmed = Boolean(data.user?.email_confirmed_at);
-  if (!alreadyConfirmed) {
-    // Evita depender del correo de confirmación (límite ~2/hora en Supabase free)
-    const confirm = await confirmUserEmail(userId);
-    if (!confirm.ok) {
-      return NextResponse.json(
-        {
-          error: confirm.error ?? 'Registro creado pero no se pudo activar la cuenta.',
-          code: 'confirm_failed',
-          needsVerification: true,
-          email,
-        },
-        { status: 503 },
-      );
-    }
   }
 
   const cookieStore = await cookies();

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   emailMatchesMatricula,
   expectedUteqEmail,
@@ -29,6 +29,13 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [availability, setAvailability] = useState<{
+    emailAvailable: boolean;
+    matriculaAvailable: boolean;
+    emailMessage: string | null;
+    matriculaMessage: string | null;
+  } | null>(null);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
 
   function updateField(field: keyof typeof form, value: string) {
     setForm((prev) => {
@@ -50,9 +57,54 @@ export default function RegisterPage() {
   const checks = passwordRuleResults(form.password);
   const strength = checks.filter((c) => c.passed).length;
   const emailValid = useMemo(
-    () => form.email.length > 0 && emailMatchesMatricula(form.email, form.matricula),
-    [form.email, form.matricula],
+    () =>
+      form.email.length > 0 &&
+      emailMatchesMatricula(form.email, form.matricula) &&
+      (availability?.emailAvailable ?? true),
+    [form.email, form.matricula, availability?.emailAvailable],
   );
+
+  const matriculaValid = useMemo(
+    () => /^\d{10}$/.test(form.matricula.trim()) && (availability?.matriculaAvailable ?? true),
+    [form.matricula, availability?.matriculaAvailable],
+  );
+
+  useEffect(() => {
+    const email = form.email.trim().toLowerCase();
+    const matricula = form.matricula.trim();
+    const ready = email.includes('@') && matricula.length === 10;
+
+    if (!ready) {
+      setAvailability(null);
+      return;
+    }
+
+    const timer = window.setTimeout(async () => {
+      setCheckingAvailability(true);
+      try {
+        const res = await fetch('/api/auth/check-registration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, matricula }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setAvailability({
+            emailAvailable: Boolean(data.emailAvailable),
+            matriculaAvailable: Boolean(data.matriculaAvailable),
+            emailMessage: data.emailMessage ?? null,
+            matriculaMessage: data.matriculaMessage ?? null,
+          });
+        }
+      } catch {
+        setAvailability(null);
+      } finally {
+        setCheckingAvailability(false);
+      }
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [form.email, form.matricula]);
 
   async function handleRegister(e: FormEvent) {
     e.preventDefault();
@@ -73,6 +125,16 @@ export default function RegisterPage() {
     });
     if (validationError) {
       setError(validationError);
+      return;
+    }
+
+    if (availability && !availability.emailAvailable) {
+      setError(availability.emailMessage ?? 'Este correo ya está registrado.');
+      return;
+    }
+
+    if (availability && !availability.matriculaAvailable) {
+      setError(availability.matriculaMessage ?? 'Esta matrícula ya está registrada.');
       return;
     }
 
@@ -182,8 +244,16 @@ export default function RegisterPage() {
             onChange={(e) => updateField('matricula', e.target.value.replace(/\D/g, '').slice(0, 10))}
             inputMode="numeric"
             autoComplete="off"
-            helper="10 dígitos"
-            valid={/^\d{10}$/.test(form.matricula.trim())}
+            helper={
+              availability?.matriculaMessage ??
+              (checkingAvailability ? 'Verificando matrícula…' : '10 dígitos')
+            }
+            error={
+              availability && !availability.matriculaAvailable
+                ? availability.matriculaMessage
+                : null
+            }
+            valid={matriculaValid}
           />
 
           <HInput
@@ -195,9 +265,17 @@ export default function RegisterPage() {
             autoComplete="email"
             icon={<MailIcon />}
             helper={
-              form.matricula.trim().length === 10
-                ? `Debe ser ${expectedUteqEmail(form.matricula)}`
-                : 'Debe coincidir con tu matrícula @uteq.edu.mx'
+              availability?.emailMessage ??
+              (checkingAvailability
+                ? 'Verificando disponibilidad…'
+                : form.matricula.trim().length === 10
+                  ? `Debe ser ${expectedUteqEmail(form.matricula)}`
+                  : 'Debe coincidir con tu matrícula @uteq.edu.mx')
+            }
+            error={
+              availability && !availability.emailAvailable
+                ? availability.emailMessage
+                : null
             }
             valid={emailValid}
           />
