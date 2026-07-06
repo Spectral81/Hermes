@@ -37,7 +37,8 @@ export async function POST(request: Request) {
   const origin = requestOrigin(request);
   const result = await sendPasswordResetEmail({ to: email, requestOrigin: origin });
 
-  if (!result.ok && !result.skipped) {
+  if (!result.ok) {
+    console.error('[forgot-password]', email, result.error);
     return NextResponse.json(
       { error: result.error ?? 'No se pudo enviar el correo.' },
       { status: 500 },
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
+    messageId: result.messageId ?? null,
     message: 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
   });
 }

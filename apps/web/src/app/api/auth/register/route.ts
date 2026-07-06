@@ -115,7 +115,11 @@ export async function POST(request: Request) {
     to: email,
     nombre: registerInput.nombre,
     requestOrigin: new URL(request.url).origin,
-  }).catch((err) => console.error('[welcome-email]', err));
+  }).then((result) => {
+    if (!result.ok) {
+      console.error('[welcome-email]', email, result.error);
+    }
+  });
 
   const cookieStore = await cookies();
   const supabase = createServerClient(url, key, {

@@ -48,7 +48,7 @@ export async function sendWelcomeEmail(input: {
   to: string;
   nombre: string;
   requestOrigin?: string;
-}): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+}): Promise<{ ok: boolean; skipped?: boolean; error?: string; messageId?: string }> {
   if (!isBrevoConfigured()) {
     return { ok: false, skipped: true, error: 'Brevo no configurado.' };
   }
@@ -65,7 +65,7 @@ export async function sendWelcomeEmail(input: {
 export async function sendVerificationEmail(input: {
   to: string;
   requestOrigin?: string;
-}): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+}): Promise<{ ok: boolean; skipped?: boolean; error?: string; messageId?: string }> {
   if (!isBrevoConfigured()) {
     return { ok: false, skipped: true, error: 'Brevo no configurado.' };
   }
@@ -87,7 +87,7 @@ export async function sendVerificationEmail(input: {
 export async function sendPasswordResetEmail(input: {
   to: string;
   requestOrigin?: string;
-}): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+}): Promise<{ ok: boolean; skipped?: boolean; error?: string; messageId?: string }> {
   if (!isBrevoConfigured()) {
     return { ok: false, skipped: true, error: 'Brevo no configurado.' };
   }

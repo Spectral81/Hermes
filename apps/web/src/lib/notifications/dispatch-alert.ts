@@ -41,8 +41,10 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
     for (const user of recipients) {
       if (!user.email) continue;
       tasks.push(
-        sendBrevoEmail({ to: user.email, subject, html }).catch((e) => {
-          console.error('[brevo]', user.email, e);
+        sendBrevoEmail({ to: user.email, subject, html }).then((result) => {
+          if (!result.ok) {
+            console.error('[brevo] alert email failed', user.email, result.error);
+          }
         }),
       );
     }
