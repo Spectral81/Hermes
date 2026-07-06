@@ -11,10 +11,11 @@
     "build:web": "npm run build --workspace=web"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "overrides": {
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "@supabase/supabase-js": "2.49.8"
   }
 }

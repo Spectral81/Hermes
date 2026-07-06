@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS deps
+FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 
 # Railway inyecta NODE_ENV=production; forzar devDeps para TypeScript en next build
@@ -7,16 +7,20 @@ ENV NODE_ENV=development
 COPY package.json package-lock.json .npmrc ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/shared/src ./packages/shared/src
 
-RUN npm ci --workspace=web --include-workspace-root --include=dev
+RUN npm ci --include=dev
 
-FROM node:20-bookworm-slim AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json .npmrc ./
 COPY packages/shared ./packages/shared
 COPY apps/web ./apps/web
+
+# Next busca typescript/@types en apps/web/node_modules (monorepo hoisting)
+RUN ln -sfn ../../node_modules apps/web/node_modules
 
 ARG NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
@@ -29,7 +33,7 @@ ENV NODE_ENV=production
 
 RUN npm run build --workspace=web
 
-FROM node:20-bookworm-slim AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -42,5 +46,4 @@ COPY --from=builder /app/apps/web ./apps/web
 
 EXPOSE 3000
 
-# sh expande $PORT que Railway inyecta en runtime
 CMD ["sh", "-c", "exec npm run start --workspace=web"]
