@@ -21,15 +21,7 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 
-# Instalar deps de TypeScript dentro de apps/web (Next resuelve desde este directorio)
-RUN cd apps/web && npm install --no-save --ignore-scripts \
-    typescript@5.8.3 \
-    @types/react@19.1.6 \
-    @types/react-dom@19.1.5 \
-    @types/node@22.15.21
-
-WORKDIR /app/apps/web
-RUN node ../../node_modules/next/dist/bin/next build
+RUN npm run build --workspace=web
 
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
