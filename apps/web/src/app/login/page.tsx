@@ -110,9 +110,9 @@ export default function LoginPage() {
               />
               <span>Recordarme</span>
             </label>
-            <button type="button" className="hermes-link-btn" onClick={() => alert('Próximamente')}>
+            <Link href="/forgot-password" className="hermes-link-btn">
               ¿Olvidaste tu contraseña?
-            </button>
+            </Link>
           </div>
 
           <HButton type="submit" full loading={loading} className="hermes-btn-round">

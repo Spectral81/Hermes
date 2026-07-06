@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { CreateIncidentInput } from '@uteq/shared';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { dispatchIncidentAlerts } from '@/lib/notifications/dispatch-alert';
 
 function normalizeIncident(raw: Record<string, unknown>) {
   return {
@@ -107,12 +108,20 @@ export async function POST(request: Request) {
       .eq('id', profile.id)
       .maybeSingle();
 
-    return NextResponse.json(
-      normalizeIncident({
-        ...(data as Record<string, unknown>),
-        author_nombre: author?.nombre ?? null,
-      }),
-    );
+    const incident = normalizeIncident({
+      ...(data as Record<string, unknown>),
+      author_nombre: author?.nombre ?? null,
+    });
+
+    void dispatchIncidentAlerts({
+      incidentId: incident.id,
+      type: body.type,
+      description: body.description ?? '',
+      lat: body.lat,
+      lng: body.lng,
+    }).catch((err) => console.error('[dispatchIncidentAlerts]', err));
+
+    return NextResponse.json(incident);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Error al crear reporte.' },

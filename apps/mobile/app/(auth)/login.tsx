@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAuthErrorMessage, validateLogin } from '@uteq/shared';
 import { supabase } from '@/lib/supabase';
+import { getWebApiUrl, loginViaWebApi } from '@/lib/web-api';
 import { HERMES } from '@/lib/theme';
 import { HButton, HInput } from '@/components/ui';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
@@ -39,18 +40,46 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
 
-    if (authError) {
-      setError(getAuthErrorMessage(authError.message));
+    try {
+      const webApi = getWebApiUrl();
+
+      if (webApi) {
+        const result = await loginViaWebApi(webApi, { email, password });
+        if (!result.ok) {
+          setError(getAuthErrorMessage(result.error ?? 'Error al iniciar sesión.'));
+          return;
+        }
+
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: result.access_token!,
+          refresh_token: result.refresh_token!,
+        });
+
+        if (sessionError) {
+          setError(getAuthErrorMessage(sessionError.message));
+          return;
+        }
+      } else {
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+
+        if (authError) {
+          setError(getAuthErrorMessage(authError.message));
+          return;
+        }
+      }
+
+      router.replace('/(app)/(tabs)/home');
+    } catch {
+      setError(
+        'Sin conexión. Verifica tu internet y que EXPO_PUBLIC_WEB_API_URL esté en apps/mobile/.env',
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    router.replace('/(app)/(tabs)/home');
   }
 
   function showComingSoon(feature: string) {
@@ -127,23 +156,6 @@ export default function LoginScreen() {
           <HButton label="Iniciar sesión" full loading={loading} onPress={handleLogin} style={styles.roundBtn} />
         </View>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>O CONTINÚA CON</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <View style={styles.bioRow}>
-          <Pressable style={styles.bioBtn} onPress={() => showComingSoon('Huella dactilar')}>
-            <MaterialCommunityIcons name="fingerprint" size={20} color={HERMES.blue} />
-            <Text style={styles.bioText}>Huella</Text>
-          </Pressable>
-          <Pressable style={styles.bioBtn} onPress={() => showComingSoon('Face ID')}>
-            <MaterialCommunityIcons name="face-recognition" size={20} color={HERMES.blue} />
-            <Text style={styles.bioText}>Face ID</Text>
-          </Pressable>
-        </View>
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>¿Eres nuevo? </Text>
           <Link href="/(auth)/register" style={styles.link}>
@@ -183,23 +195,6 @@ const styles = StyleSheet.create({
   forgotLink: { fontSize: 13, color: HERMES.blue, fontWeight: '600' },
   submit: { marginTop: 28 },
   roundBtn: { borderRadius: 14 },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 28 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: HERMES.gray200 },
-  dividerText: { fontSize: 11, color: HERMES.gray400, fontWeight: '600', letterSpacing: 0.3 },
-  bioRow: { flexDirection: 'row', gap: 12 },
-  bioBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: HERMES.gray200,
-    backgroundColor: '#fff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  bioText: { fontSize: 13, fontWeight: '600', color: HERMES.gray700 },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',

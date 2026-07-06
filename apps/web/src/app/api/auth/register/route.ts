@@ -7,6 +7,7 @@ import {
   createAuthUserWithAdmin,
   prepareRegistrationSlots,
 } from '@/lib/auth/registration-slots';
+import { sendWelcomeEmail } from '@/lib/auth/auth-email';
 
 function isValidSupabaseUrl(url: string): boolean {
   try {
@@ -109,6 +110,12 @@ export async function POST(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: 'No se pudo crear el usuario.' }, { status: 500 });
   }
+
+  void sendWelcomeEmail({
+    to: email,
+    nombre: registerInput.nombre,
+    requestOrigin: new URL(request.url).origin,
+  }).catch((err) => console.error('[welcome-email]', err));
 
   const cookieStore = await cookies();
   const supabase = createServerClient(url, key, {

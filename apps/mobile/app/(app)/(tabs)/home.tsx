@@ -250,6 +250,7 @@ export default function HomeScreen() {
           incident={selected}
           onClose={() => setSelected(null)}
           onLikeChange={handleLikeChange}
+          onValidate={() => router.push(`/(app)/validate/${selected.id}`)}
         />
       ) : (
         <Pressable

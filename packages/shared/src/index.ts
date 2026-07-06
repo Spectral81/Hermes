@@ -101,6 +101,14 @@ export const INCIDENT_EMOJI: Record<IncidentType, string> = {
   panico: '🚨',
 };
 
+/** Validaciones comunitarias necesarias para marcar un reporte como verificado. */
+export const INCIDENT_VALIDATION_TARGET = 3;
+
+/** Alertas que disparan WhatsApp (robo y SOS/pánico). */
+export function isCriticalIncidentType(type: IncidentType): boolean {
+  return type === 'robo' || type === 'panico';
+}
+
 /** Nombres MaterialCommunityIcons para formularios y botones móvil */
 export const INCIDENT_VECTOR_ICONS = {
   robo: 'shield-alert',
@@ -235,8 +243,8 @@ export function getAuthErrorMessage(message: string): string {
   if (msg.includes('Falta SUPABASE_SERVICE_ROLE_KEY')) {
     return 'Falta configurar SUPABASE_SERVICE_ROLE_KEY en Railway (Settings → API → service_role).';
   }
-  if (msg.includes('Failed to fetch')) {
-    return 'No se pudo conectar a Supabase. Revisa NEXT_PUBLIC_SUPABASE_URL en Railway.';
+  if (msg.includes('Failed to fetch') || /network request failed/i.test(msg)) {
+    return 'Sin conexión a Supabase. Revisa tu internet y EXPO_PUBLIC_SUPABASE_URL en apps/mobile/.env (debe ser https://xxx.supabase.co).';
   }
   return msg;
 }

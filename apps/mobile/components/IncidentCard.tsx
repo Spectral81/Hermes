@@ -16,9 +16,10 @@ interface Props {
   incident: Incident;
   onClose: () => void;
   onLikeChange: (id: string, likes: number, liked: boolean) => void;
+  onValidate?: () => void;
 }
 
-export function IncidentCard({ incident, onClose, onLikeChange }: Props) {
+export function IncidentCard({ incident, onClose, onLikeChange, onValidate }: Props) {
   const [busy, setBusy] = useState(false);
   const meta = CATEGORY[incident.type];
 
@@ -74,6 +75,12 @@ export function IncidentCard({ incident, onClose, onLikeChange }: Props) {
 
       <View style={styles.footerRow}>
         {incident.author_nombre ? <HAvatar name={incident.author_nombre} size={28} /> : null}
+        {onValidate ? (
+          <Pressable style={styles.validateBtn} onPress={onValidate}>
+            <MaterialCommunityIcons name="shield-check" size={16} color="#fff" />
+            <Text style={styles.validateText}>Validar</Text>
+          </Pressable>
+        ) : null}
         <View style={{ flex: 1 }} />
         <Pressable
           style={[styles.likeBtn, incident.liked_by_me && styles.likeBtnActive]}
@@ -125,6 +132,16 @@ const styles = StyleSheet.create({
   description: { color: HERMES.gray700, marginTop: 12, fontSize: 14, lineHeight: 20 },
   descriptionMuted: { color: HERMES.gray400, marginTop: 12, fontStyle: 'italic', fontSize: 14 },
   footerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 10 },
+  validateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: HERMES.green,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  validateText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   likeBtn: {
     flexDirection: 'row',
     alignItems: 'center',

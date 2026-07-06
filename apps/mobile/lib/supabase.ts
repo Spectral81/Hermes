@@ -6,10 +6,12 @@ import Constants from 'expo-constants';
 let client: SupabaseClient | null = null;
 
 function readSupabaseConfig() {
-  const url = Constants.expoConfig?.extra?.supabaseUrl
-    ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const key = Constants.expoConfig?.extra?.supabaseAnonKey
-    ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  const url = (
+    Constants.expoConfig?.extra?.supabaseUrl ?? process.env.EXPO_PUBLIC_SUPABASE_URL
+  )?.trim();
+  const key = (
+    Constants.expoConfig?.extra?.supabaseAnonKey ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+  )?.trim();
   return { url, key };
 }
 

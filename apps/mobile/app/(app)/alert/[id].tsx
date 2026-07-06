@@ -148,6 +148,13 @@ export default function AlertDetailScreen() {
                 {incident.liked_by_me ? 'Confirmaste este reporte' : 'Confirmar reporte'}
               </Text>
             </Pressable>
+            <Pressable
+              style={styles.validateLink}
+              onPress={() => router.push(`/(app)/validate/${incident.id}`)}
+            >
+              <MaterialCommunityIcons name="shield-check-outline" size={18} color={HERMES.green} />
+              <Text style={styles.validateLinkText}>Abrir pantalla de validación</Text>
+            </Pressable>
             {incident.likes_count > 0 && (
               <Text style={styles.validHint}>
                 {incident.likes_count} persona{incident.likes_count === 1 ? '' : 's'} confirmaron este incidente.
@@ -265,6 +272,13 @@ const styles = StyleSheet.create({
   likeText: { color: HERMES.blue, fontWeight: '800', fontSize: 14 },
   likeTextActive: { color: '#fff' },
   validHint: { fontSize: 13, color: HERMES.gray600, lineHeight: 18 },
+  validateLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  validateLinkText: { color: HERMES.green, fontWeight: '700', fontSize: 14 },
   mapCard: {
     height: 180,
     borderRadius: 16,

@@ -78,3 +78,67 @@ export async function confirmRegistrationViaWebApi(
 
   return { ok: true };
 }
+
+export async function loginViaWebApi(
+  baseUrl: string,
+  input: { email: string; password: string },
+): Promise<{
+  ok: boolean;
+  access_token?: string;
+  refresh_token?: string;
+  error?: string;
+  code?: string;
+}> {
+  try {
+    const res = await fetch(`${baseUrl}/api/auth/login-mobile`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: input.email.trim().toLowerCase(),
+        password: input.password,
+      }),
+    });
+
+    const text = await res.text();
+    let result: {
+      ok?: boolean;
+      access_token?: string;
+      refresh_token?: string;
+      error?: unknown;
+      code?: string;
+    } | null = null;
+
+    try {
+      result = text ? JSON.parse(text) : null;
+    } catch {
+      result = null;
+    }
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: toAuthErrorMessage(
+          result?.error ?? result,
+          `Error del servidor (HTTP ${res.status}).`,
+        ),
+        code: result?.code,
+      };
+    }
+
+    if (!result?.access_token || !result?.refresh_token) {
+      return { ok: false, error: 'Respuesta inválida del servidor.' };
+    }
+
+    return {
+      ok: true,
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
+    };
+  } catch {
+    return {
+      ok: false,
+      error:
+        'Sin conexión al servidor. Revisa tu internet y EXPO_PUBLIC_WEB_API_URL en apps/mobile/.env',
+    };
+  }
+}

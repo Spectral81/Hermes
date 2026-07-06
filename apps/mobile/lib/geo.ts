@@ -1,4 +1,4 @@
-import type { IncidentStatus } from '@uteq/shared';
+import { INCIDENT_VALIDATION_TARGET, type IncidentStatus } from '@uteq/shared';
 import type { StatusKind } from '@/lib/theme';
 
 export function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -19,7 +19,7 @@ export function formatDistance(meters: number): string {
 }
 
 export function incidentStatusKind(status: IncidentStatus, likes: number): StatusKind {
-  if (likes >= 3) return 'verified';
+  if (likes >= INCIDENT_VALIDATION_TARGET) return 'verified';
   switch (status) {
     case 'activo':
       return 'active';
