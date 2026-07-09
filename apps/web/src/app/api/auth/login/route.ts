@@ -68,27 +68,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  // Asegura que exista perfil y lee rol de forma consistente
+  // en el mismo request de login.
   let redirectTo = '/mapa';
-  if (user?.id) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle();
+  const { data: ensuredProfile } = await supabase.rpc('ensure_my_profile');
+  const role = (ensuredProfile as { role?: string } | null)?.role;
 
-    const role = profile?.role as string | undefined;
-    if (
-      role === 'admin_general' ||
-      role === 'responsable_robos' ||
-      role === 'responsable_accidentes' ||
-      role === 'responsable_infraestructura'
-    ) {
-      redirectTo = '/dashboard';
-    }
+  if (
+    role === 'admin_general' ||
+    role === 'responsable_robos' ||
+    role === 'responsable_accidentes' ||
+    role === 'responsable_infraestructura'
+  ) {
+    redirectTo = '/dashboard';
   }
 
   return NextResponse.json({ ok: true, redirectTo });
