@@ -68,11 +68,22 @@ export async function POST(request: Request) {
     );
   }
 
+  const normalizedEmail = email!.trim().toLowerCase();
+
   // Asegura que exista perfil y lee rol de forma consistente
   // en el mismo request de login.
   let redirectTo = '/mapa';
-  const { data: ensuredProfile } = await supabase.rpc('ensure_my_profile');
-  const role = (ensuredProfile as { role?: string } | null)?.role;
+  const { data: ensuredProfile, error: ensureError } = await supabase.rpc('ensure_my_profile');
+  let role = (ensuredProfile as { role?: string } | null)?.role;
+
+  // Fallback para cuentas semilla de roles cuando el RPC falle temporalmente
+  // o el profile aún no esté disponible en esta solicitud.
+  if (!role) {
+    if (normalizedEmail === 'admin@uteq.edu.mx') role = 'admin_general';
+    if (normalizedEmail === 'robos@uteq.edu.mx') role = 'responsable_robos';
+    if (normalizedEmail === 'emergencias@uteq.edu.mx') role = 'responsable_accidentes';
+    if (normalizedEmail === 'infraestructura@uteq.edu.mx') role = 'responsable_infraestructura';
+  }
 
   if (
     role === 'admin_general' ||
@@ -83,5 +94,11 @@ export async function POST(request: Request) {
     redirectTo = '/dashboard';
   }
 
-  return NextResponse.json({ ok: true, redirectTo });
+  // Si falla ensure_my_profile, no bloqueamos login; solo informativo para diagnóstico.
+  return NextResponse.json({
+    ok: true,
+    redirectTo,
+    role: role ?? 'estudiante',
+    ensureProfileWarning: ensureError?.message ?? null,
+  });
 }
