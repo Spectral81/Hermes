@@ -50,7 +50,7 @@ export default function LoginPage() {
       const location = await requestUserLocation();
       if (location) saveUserLocation(location);
 
-      router.push('/mapa');
+      router.push(result.redirectTo ?? '/mapa');
       router.refresh();
     } catch {
       setError('No se pudo conectar con el servidor.');

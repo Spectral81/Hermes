@@ -68,5 +68,28 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let redirectTo = '/mapa';
+  if (user?.id) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const role = profile?.role as string | undefined;
+    if (
+      role === 'admin_general' ||
+      role === 'responsable_robos' ||
+      role === 'responsable_accidentes' ||
+      role === 'responsable_infraestructura'
+    ) {
+      redirectTo = '/dashboard';
+    }
+  }
+
+  return NextResponse.json({ ok: true, redirectTo });
 }
