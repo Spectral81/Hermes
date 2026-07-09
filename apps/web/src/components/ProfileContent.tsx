@@ -61,6 +61,12 @@ export function ProfileContent() {
   }, [myIncidents]);
 
   const fullName = profile ? `${profile.nombre} ${profile.apellidos}` : 'Usuario UTEQ';
+  const privilegedRole = profile
+    ? profile.role === 'admin_general' ||
+      profile.role === 'responsable_robos' ||
+      profile.role === 'responsable_accidentes' ||
+      profile.role === 'responsable_infraestructura'
+    : false;
 
   async function handleLogout() {
     const supabase = createClient();
@@ -122,6 +128,14 @@ export function ProfileContent() {
             <DataRow label="Teléfono" value={profile.telefono} />
             <DataRow label="Matrícula" value={profile.matricula} />
           </HCard>
+        )}
+
+        {privilegedRole && (
+          <div className="hermes-profile-block">
+            <Link href="/dashboard" className="hermes-btn hermes-btn-primary hermes-btn-full">
+              Abrir dashboard de gestión
+            </Link>
+          </div>
         )}
 
         <div className="hermes-profile-block-header">

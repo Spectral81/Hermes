@@ -2538,3 +2538,173 @@ body {
     min-height: 50vh;
   }
 }
+
+/* ─── Dashboard de roles (web) ─── */
+.hermes-admin-page {
+  min-height: 100vh;
+  background: #f9fafb;
+  color: #0f172a;
+  padding: 24px;
+}
+
+.hermes-admin-center {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hermes-admin-shell {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.hermes-admin-hero {
+  background: linear-gradient(160deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #fff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 8px 24px rgba(29, 78, 216, 0.28);
+}
+
+.hermes-admin-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.hermes-admin-hero h1 {
+  margin: 6px 0 0;
+  font-size: 1.85rem;
+  letter-spacing: -0.03em;
+}
+
+.hermes-admin-sub {
+  margin: 4px 0 0;
+  opacity: 0.9;
+}
+
+.hermes-admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.hermes-admin-stat-card {
+  text-align: center;
+}
+
+.hermes-admin-stat-card strong {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.hermes-admin-stat-card span {
+  display: block;
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.hermes-admin-filters {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.hermes-admin-chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hermes-admin-list {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.hermes-admin-card {
+  display: grid;
+  gap: 10px;
+}
+
+.hermes-admin-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hermes-admin-glyph {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.hermes-admin-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.hermes-admin-title-wrap h3 {
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.hermes-admin-title-wrap p {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin: 2px 0 0;
+}
+
+.hermes-admin-status {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.hermes-admin-desc {
+  color: #374151;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.hermes-admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hermes-admin-empty,
+.hermes-admin-unauthorized {
+  text-align: center;
+  padding: 28px;
+}
+
+.hermes-admin-unauthorized h1 {
+  margin: 0 0 6px;
+}
+
+@media (max-width: 900px) {
+  .hermes-admin-page {
+    padding: 16px;
+  }
+
+  .hermes-admin-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
