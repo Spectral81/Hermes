@@ -24,12 +24,13 @@ function formatCoords(lat: number, lng: number): string {
 }
 
 /**
- * Alerta SOS por WhatsApp — solo mensajes salientes (plantilla Meta).
- * No hay conversación: los usuarios solo reciben el aviso con ubicación.
+ * Alerta SOS por WhatsApp — solo mensajes salientes.
+ * Con WHATSAPP_ALLOW_TEXT=true usa texto libre (pruebas / plantilla pendiente).
+ * Sin eso, usa la plantilla aprobada en Meta.
  */
 export async function sendSosWhatsApp(
   input: SosWhatsAppInput,
-): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+): Promise<{ ok: boolean; skipped?: boolean; error?: string; mode?: string }> {
   const token = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
 
@@ -38,6 +39,10 @@ export async function sendSosWhatsApp(
   }
 
   const to = normalizePhoneE164(input.toPhoneE164);
+  if (!to || to.length < 10) {
+    return { ok: false, error: `Teléfono inválido: ${input.toPhoneE164}` };
+  }
+
   const location = mapsLink(input.lat, input.lng);
   const coords = formatCoords(input.lat, input.lng);
   const who = input.authorName.trim() || 'Un usuario de HERMES';
@@ -45,6 +50,7 @@ export async function sendSosWhatsApp(
 
   const templateName = process.env.WHATSAPP_TEMPLATE_NAME?.trim();
   const templateLang = process.env.WHATSAPP_TEMPLATE_LANG?.trim() || 'es_MX';
+  // Preferir texto en pruebas: la plantilla pendiente es rechazada por Meta.
   const allowText = process.env.WHATSAPP_ALLOW_TEXT?.trim() === 'true';
 
   const bodyText = [
@@ -61,40 +67,43 @@ export async function sendSosWhatsApp(
     .filter(Boolean)
     .join('\n');
 
-  const payload = templateName
-    ? {
-        messaging_product: 'whatsapp',
-        to,
-        type: 'template',
-        template: {
-          name: templateName,
-          language: { code: templateLang },
-          components: [
-            {
-              type: 'body',
-              parameters: [
-                { type: 'text', text: who },
-                { type: 'text', text: location },
-                { type: 'text', text: coords },
-              ],
-            },
-          ],
-        },
-      }
-    : allowText
-      ? {
-          messaging_product: 'whatsapp',
-          to,
-          type: 'text',
-          text: { body: bodyText },
-        }
-      : null;
+  let mode: 'text' | 'template';
+  let payload: Record<string, unknown>;
 
-  if (!payload) {
+  if (allowText) {
+    mode = 'text';
+    payload = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body: bodyText },
+    };
+  } else if (templateName) {
+    mode = 'template';
+    payload = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: templateLang },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: who },
+              { type: 'text', text: location },
+              { type: 'text', text: coords },
+            ],
+          },
+        ],
+      },
+    };
+  } else {
     return {
       ok: false,
       error:
-        'Configura WHATSAPP_TEMPLATE_NAME (producción) o WHATSAPP_ALLOW_TEXT=true (solo pruebas).',
+        'Configura WHATSAPP_TEMPLATE_NAME (producción) o WHATSAPP_ALLOW_TEXT=true (pruebas).',
     };
   }
 
@@ -109,10 +118,12 @@ export async function sendSosWhatsApp(
 
   if (!res.ok) {
     const err = await res.text();
-    return { ok: false, error: err || `WhatsApp HTTP ${res.status}` };
+    console.error('[whatsapp/sos] Meta error', { to, mode, err });
+    return { ok: false, error: err || `WhatsApp HTTP ${res.status}`, mode };
   }
 
-  return { ok: true };
+  console.info('[whatsapp/sos] enviado', { to, mode });
+  return { ok: true, mode };
 }
 
 export function isWhatsAppConfigured(): boolean {
@@ -127,6 +138,13 @@ export function isSosWhatsAppReady(): boolean {
     Boolean(process.env.WHATSAPP_TEMPLATE_NAME?.trim()) ||
     process.env.WHATSAPP_ALLOW_TEXT?.trim() === 'true'
   );
+}
+
+export function whatsAppSendMode(): 'text' | 'template' | 'none' {
+  if (!isWhatsAppConfigured()) return 'none';
+  if (process.env.WHATSAPP_ALLOW_TEXT?.trim() === 'true') return 'text';
+  if (process.env.WHATSAPP_TEMPLATE_NAME?.trim()) return 'template';
+  return 'none';
 }
 
 /** @deprecated Usar sendSosWhatsApp — WhatsApp es solo para SOS. */

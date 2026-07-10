@@ -38,7 +38,10 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
     .eq('active', true)
     .limit(500);
 
-  if (!recipients?.length) return;
+  if (!recipients?.length) {
+    console.warn('[dispatch] sin perfiles activos');
+    return;
+  }
 
   const typeLabel = INCIDENT_LABELS[input.type];
   const appUrl = getPublicAppUrl();
@@ -66,31 +69,40 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
     }
   }
 
-  // WhatsApp: solo botón SOS (pánico) — mensaje unidireccional a todos con teléfono.
+  // WhatsApp: solo SOS/pánico — a TODOS con teléfono (incluye quien activó, para poder probar).
   if (isSosIncidentType(input.type) && isWhatsAppConfigured()) {
     if (!isSosWhatsAppReady()) {
       console.warn(
         '[whatsapp/sos] Configura WHATSAPP_TEMPLATE_NAME o WHATSAPP_ALLOW_TEXT=true para pruebas',
       );
     } else {
-      const authorName = await resolveAuthorName(admin, input.createdBy, recipients);
-      for (const user of recipients) {
-        if (!user.telefono) continue;
-        if (input.createdBy && user.id === input.createdBy) continue;
-        const e164 = user.telefono.startsWith('+') ? user.telefono : `+52${user.telefono}`;
-        tasks.push(
-          sendSosWhatsApp({
-            toPhoneE164: e164,
-            authorName,
-            lat: input.lat,
-            lng: input.lng,
-            description: input.description,
-          }).then((result) => {
-            if (!result.ok && !result.skipped) {
-              console.error('[whatsapp/sos]', user.telefono, result.error);
-            }
-          }),
-        );
+      const withPhone = recipients.filter((u) => Boolean(u.telefono?.trim()));
+      console.info('[whatsapp/sos] destinatarios', {
+        incidentId: input.incidentId,
+        total: withPhone.length,
+      });
+
+      if (withPhone.length === 0) {
+        console.warn('[whatsapp/sos] ningún perfil activo tiene telefono en Supabase');
+      } else {
+        const authorName = await resolveAuthorName(admin, input.createdBy, recipients);
+        for (const user of withPhone) {
+          const phone = user.telefono!.trim();
+          const e164 = phone.startsWith('+') ? phone : `+52${phone}`;
+          tasks.push(
+            sendSosWhatsApp({
+              toPhoneE164: e164,
+              authorName,
+              lat: input.lat,
+              lng: input.lng,
+              description: input.description,
+            }).then((result) => {
+              if (!result.ok && !result.skipped) {
+                console.error('[whatsapp/sos] falló', phone, result.error);
+              }
+            }),
+          );
+        }
       }
     }
   }
