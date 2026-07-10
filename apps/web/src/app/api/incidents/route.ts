@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { CreateIncidentInput } from '@uteq/shared';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { dispatchIncidentAlerts } from '@/lib/notifications/dispatch-alert';
+import { getRequestUser } from '@/lib/supabase/request-auth';
 
 function normalizeIncident(raw: Record<string, unknown>) {
   return {
@@ -69,14 +70,19 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CreateIncidentInput;
     const admin = createAdminClient();
+    const user = await getRequestUser(request);
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('id')
-      .limit(1)
-      .maybeSingle();
+    let createdBy = user?.id ?? null;
+    if (!createdBy) {
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+      createdBy = profile?.id ?? null;
+    }
 
-    if (!profile?.id) {
+    if (!createdBy) {
       return NextResponse.json(
         { error: 'No hay perfiles en la base de datos para asociar el reporte.' },
         { status: 500 },
@@ -92,7 +98,7 @@ export async function POST(request: Request) {
         lng: body.lng,
         category: body.category ?? null,
         severity: body.severity ?? null,
-        created_by: profile.id,
+        created_by: createdBy,
         status: 'activo',
       })
       .select('*')
@@ -105,7 +111,7 @@ export async function POST(request: Request) {
     const { data: author } = await admin
       .from('profiles')
       .select('nombre')
-      .eq('id', profile.id)
+      .eq('id', createdBy)
       .maybeSingle();
 
     const incident = normalizeIncident({
@@ -119,6 +125,7 @@ export async function POST(request: Request) {
       description: body.description ?? '',
       lat: body.lat,
       lng: body.lng,
+      createdBy,
     }).catch((err) => console.error('[dispatchIncidentAlerts]', err));
 
     return NextResponse.json(incident);

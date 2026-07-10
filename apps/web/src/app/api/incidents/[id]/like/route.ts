@@ -1,46 +1,90 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { dispatchVerifiedPush } from '@/lib/notifications/dispatch-push';
+import { createClient } from '@/lib/supabase/server';
+
+function extractBearerToken(request: Request): string | null {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7).trim();
+  return token || null;
+}
+
+async function getUserSupabase(request: Request) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!url || !anonKey) throw new Error('Faltan variables de Supabase.');
+
+  const bearer = extractBearerToken(request);
+  if (bearer) {
+    return createSupabaseClient(url, anonKey, {
+      global: { headers: { Authorization: `Bearer ${bearer}` } },
+    });
+  }
+
+  return createClient();
+}
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
   try {
-    const admin = createAdminClient();
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('id')
-      .limit(1)
-      .maybeSingle();
+    const supabase = await getUserSupabase(request);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!profile?.id) {
-      return NextResponse.json({ error: 'Sin perfil de demostración.' }, { status: 500 });
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const { data: existing } = await admin
-      .from('incident_votes')
-      .select('incident_id')
-      .eq('incident_id', id)
-      .eq('user_id', profile.id)
-      .maybeSingle();
+    const { data: rpcRows, error } = await supabase.rpc('toggle_incident_like', {
+      p_incident_id: id,
+    });
 
-    if (existing) {
-      await admin.from('incident_votes').delete().eq('incident_id', id).eq('user_id', profile.id);
-    } else {
-      await admin.from('incident_votes').insert({ incident_id: id, user_id: profile.id });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const { count } = await admin
-      .from('incident_votes')
-      .select('*', { count: 'exact', head: true })
-      .eq('incident_id', id);
+    const row = (Array.isArray(rpcRows) ? rpcRows[0] : rpcRows) as {
+      likes_count?: number;
+      liked?: boolean;
+      verified?: boolean;
+      verified_now?: boolean;
+    } | null;
 
-    const likes = count ?? 0;
-    await admin.from('incidents').update({ likes_count: likes }).eq('id', id);
+    const likesCount = row?.likes_count ?? 0;
+    const liked = row?.liked ?? false;
+    const verified = row?.verified ?? false;
+    const verifiedNow = row?.verified_now ?? false;
 
-    return NextResponse.json({ likes_count: likes, liked: !existing });
+    if (verifiedNow) {
+      const { data: incident } = await supabase
+        .from('incidents')
+        .select('type, description, lat, lng')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (incident) {
+        void dispatchVerifiedPush({
+          incidentId: id,
+          type: incident.type,
+          description: incident.description ?? '',
+          lat: incident.lat,
+          lng: incident.lng,
+        }).catch((e) => console.error('[push/verified]', e));
+      }
+    }
+
+    return NextResponse.json({
+      likes_count: likesCount,
+      liked,
+      verified,
+      verified_now: verifiedNow,
+    });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Error al votar.' },

@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
 import 'core/config/env.dart';
+import 'core/navigation/app_router.dart';
+import 'core/notifications/push_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +20,10 @@ Future<void> main() async {
     url: AppEnv.supabaseUrl,
     publishableKey: AppEnv.supabaseAnonKey,
   );
+
+  if (AppEnv.isFirebaseConfigured) {
+    await PushService.instance.init(appRouter);
+  }
 
   runApp(const HermesFlutterApp());
 }

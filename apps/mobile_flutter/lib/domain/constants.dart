@@ -31,6 +31,14 @@ const Map<IncidentType, Color> incidentColors = {
   IncidentType.panico: Color(0xFFDC2626),
 };
 
+/// Icono por tipo de incidente (tarjetas y listas).
+const Map<IncidentType, IconData> incidentIcons = {
+  IncidentType.robo: Icons.warning_amber_rounded,
+  IncidentType.accidente: Icons.add_circle_outline,
+  IncidentType.infraestructura: Icons.bolt,
+  IncidentType.panico: Icons.sos,
+};
+
 const Map<InfraCategory, String> infraCategoryLabels = {
   InfraCategory.agua: 'Agua',
   InfraCategory.electricidad: 'Electricidad',

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/di/repositories.dart';
+import '../../../core/notifications/push_service.dart';
 import '../../../domain/constants.dart';
 import '../../../domain/helpers.dart';
 import '../../../domain/models.dart';
@@ -63,6 +64,7 @@ class _HomePageState extends State<HomePage> {
       _hasLocationPermission = true;
       final pos = await Geolocator.getCurrentPosition();
       _userPos = LatLng(pos.latitude, pos.longitude);
+      await PushService.instance.updateLocation(pos.latitude, pos.longitude);
     } catch (_) {
       _hasLocationPermission = false;
       // keep campus fallback
@@ -82,6 +84,10 @@ class _HomePageState extends State<HomePage> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (_) => ReportSheet(
         coords: (lat: _userPos.latitude, lng: _userPos.longitude),
         onSubmit: (input) async {
@@ -221,54 +227,35 @@ class _HomePageState extends State<HomePage> {
             ),
           Positioned(
             top: _loadError == null ? 112 : 172,
-            left: 16,
-            right: 16,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
+            left: 0,
+            right: 0,
+            child: SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  FilterChip(
-                    label: Text('Todas (${_incidents.length})'),
+                  _MapFilterChip(
+                    label: 'Todas',
+                    count: _incidents.length,
+                    color: const Color(0xFF2563EB),
+                    icon: Icons.grid_view_rounded,
                     selected: _filter == null,
-                    onSelected: (_) => setState(() => _filter = null),
+                    onTap: () => setState(() => _filter = null),
                   ),
-                  const SizedBox(width: 8),
                   ...IncidentType.values.map((type) {
                     final count = _incidents.where((i) => i.type == type).length;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text('${incidentLabels[type]} ($count)'),
-                        selected: _filter == type,
-                        onSelected: (_) => setState(() => _filter = type),
-                      ),
+                    return _MapFilterChip(
+                      label: incidentLabels[type]!,
+                      count: count,
+                      color: incidentColors[type]!,
+                      icon: incidentIcons[type]!,
+                      selected: _filter == type,
+                      onTap: () => setState(() => _filter = type),
                     );
                   }),
                 ],
               ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 100,
-            child: Column(
-              children: [
-                FloatingActionButton.small(
-                  heroTag: 'refresh',
-                  onPressed: () async {
-                    await _resolveLocation();
-                    await _loadIncidents();
-                    _mapCtrl.move(_userPos, 16);
-                  },
-                  child: const Icon(Icons.refresh),
-                ),
-                const SizedBox(height: 10),
-                FloatingActionButton.small(
-                  heroTag: 'profile',
-                  onPressed: () => context.go('/app/profile'),
-                  child: const Icon(Icons.person_outline),
-                ),
-              ],
             ),
           ),
           if (_selected != null)
@@ -293,6 +280,59 @@ class _HomePageState extends State<HomePage> {
               child: const Icon(Icons.add),
             )
           : null,
+    );
+  }
+}
+
+class _MapFilterChip extends StatelessWidget {
+  const _MapFilterChip({
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: selected ? color : Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        elevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.15),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: selected ? Colors.white : color),
+                const SizedBox(width: 6),
+                Text(
+                  '$label ($count)',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: selected ? Colors.white : const Color(0xFF334155),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

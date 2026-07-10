@@ -3,6 +3,7 @@ import { getPublicAppUrl } from '@/lib/config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildIncidentEmailHtml } from '@/lib/notifications/email-templates';
 import { isBrevoConfigured, sendBrevoEmail } from './brevo';
+import { dispatchNearbyValidationPush } from './dispatch-push';
 import { isWhatsAppConfigured, sendCriticalWhatsApp } from './whatsapp';
 
 export interface DispatchAlertInput {
@@ -11,6 +12,7 @@ export interface DispatchAlertInput {
   description: string;
   lat: number;
   lng: number;
+  createdBy?: string;
 }
 
 /** Envía email (Brevo), push (pendiente) y WhatsApp crítico tras crear un incidente. */
@@ -68,6 +70,17 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
     }
   }
 
-  // Push: registrar tokens en tabla push_tokens + Expo Push API (próximo paso).
+  // Push: usuarios cercanos (robo/accidente) para validar el reporte.
+  tasks.push(
+    dispatchNearbyValidationPush({
+      incidentId: input.incidentId,
+      type: input.type,
+      description: input.description,
+      lat: input.lat,
+      lng: input.lng,
+      createdBy: input.createdBy,
+    }).catch((e) => console.error('[push] nearby', e)),
+  );
+
   await Promise.allSettled(tasks);
 }
