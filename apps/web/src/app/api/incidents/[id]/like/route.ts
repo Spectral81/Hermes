@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
 import { dispatchVerifiedPush } from '@/lib/notifications/dispatch-push';
 import { createClient } from '@/lib/supabase/server';
 
@@ -10,19 +10,23 @@ function extractBearerToken(request: Request): string | null {
   return token || null;
 }
 
-async function getUserSupabase(request: Request) {
+async function getUserSupabase(request: Request): Promise<SupabaseClient> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!url || !anonKey) throw new Error('Faltan variables de Supabase.');
 
-  const bearer = extractBearerToken(request);
-  if (bearer) {
-    return createSupabaseClient(url, anonKey, {
-      global: { headers: { Authorization: `Bearer ${bearer}` } },
-    });
+  let accessToken = extractBearerToken(request);
+  if (!accessToken) {
+    const ssr = await createClient();
+    const {
+      data: { session },
+    } = await ssr.auth.getSession();
+    accessToken = session?.access_token ?? null;
   }
 
-  return createClient();
+  return createSupabaseClient(url, anonKey, {
+    global: accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined,
+  });
 }
 
 export async function POST(
