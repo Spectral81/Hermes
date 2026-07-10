@@ -1,10 +1,10 @@
-import { INCIDENT_LABELS, type IncidentType } from '@uteq/shared';
+import { INCIDENT_LABELS, isSosIncidentType, type IncidentType } from '@uteq/shared';
 import { getPublicAppUrl } from '@/lib/config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildIncidentEmailHtml } from '@/lib/notifications/email-templates';
 import { isBrevoConfigured, sendBrevoEmail } from './brevo';
 import { dispatchNearbyValidationPush } from './dispatch-push';
-import { isWhatsAppConfigured, sendCriticalWhatsApp } from './whatsapp';
+import { isSosWhatsAppReady, isWhatsAppConfigured, sendSosWhatsApp } from './whatsapp';
 
 export interface DispatchAlertInput {
   incidentId: string;
@@ -15,14 +15,28 @@ export interface DispatchAlertInput {
   createdBy?: string;
 }
 
-/** Envía email (Brevo), push (pendiente) y WhatsApp crítico tras crear un incidente. */
+async function resolveAuthorName(
+  admin: ReturnType<typeof createAdminClient>,
+  createdBy: string | undefined,
+  recipients: { id: string; nombre?: string | null }[],
+): Promise<string> {
+  if (!createdBy) return 'Un usuario de HERMES';
+
+  const fromList = recipients.find((r) => r.id === createdBy)?.nombre;
+  if (fromList?.trim()) return fromList.trim();
+
+  const { data } = await admin.from('profiles').select('nombre').eq('id', createdBy).maybeSingle();
+  return data?.nombre?.trim() || 'Un usuario de HERMES';
+}
+
+/** Envía email, WhatsApp SOS (solo pánico) y push cercano tras crear un incidente. */
 export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise<void> {
   const admin = createAdminClient();
   const { data: recipients } = await admin
     .from('profiles')
-    .select('email, telefono')
+    .select('id, email, telefono, nombre')
     .eq('active', true)
-    .limit(200);
+    .limit(500);
 
   if (!recipients?.length) return;
 
@@ -52,21 +66,32 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
     }
   }
 
-  if (isWhatsAppConfigured()) {
-    for (const user of recipients) {
-      if (!user.telefono) continue;
-      const e164 = user.telefono.startsWith('+') ? user.telefono : `+52${user.telefono}`;
-      tasks.push(
-        sendCriticalWhatsApp({
-          toPhoneE164: e164,
-          type: input.type,
-          description: input.description,
-          lat: input.lat,
-          lng: input.lng,
-        }).catch((e) => {
-          console.error('[whatsapp]', user.telefono, e);
-        }),
+  // WhatsApp: solo botón SOS (pánico) — mensaje unidireccional a todos con teléfono.
+  if (isSosIncidentType(input.type) && isWhatsAppConfigured()) {
+    if (!isSosWhatsAppReady()) {
+      console.warn(
+        '[whatsapp/sos] Configura WHATSAPP_TEMPLATE_NAME o WHATSAPP_ALLOW_TEXT=true para pruebas',
       );
+    } else {
+      const authorName = await resolveAuthorName(admin, input.createdBy, recipients);
+      for (const user of recipients) {
+        if (!user.telefono) continue;
+        if (input.createdBy && user.id === input.createdBy) continue;
+        const e164 = user.telefono.startsWith('+') ? user.telefono : `+52${user.telefono}`;
+        tasks.push(
+          sendSosWhatsApp({
+            toPhoneE164: e164,
+            authorName,
+            lat: input.lat,
+            lng: input.lng,
+            description: input.description,
+          }).then((result) => {
+            if (!result.ok && !result.skipped) {
+              console.error('[whatsapp/sos]', user.telefono, result.error);
+            }
+          }),
+        );
+      }
     }
   }
 

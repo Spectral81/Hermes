@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { IncidentType } from '@uteq/shared';
-import { dispatchNearbyValidationPush } from '@/lib/notifications/dispatch-push';
+import { dispatchIncidentAlerts } from '@/lib/notifications/dispatch-alert';
 import { getRequestUser } from '@/lib/supabase/request-auth';
 
-/** Dispara push de validación cercana tras crear un incidente vía RPC (app móvil). */
+/** Dispara email, WhatsApp SOS y push tras crear incidente vía RPC (app móvil). */
 export async function POST(request: Request) {
   try {
     const user = await getRequestUser(request);
@@ -24,14 +24,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
     }
 
-    void dispatchNearbyValidationPush({
+    void dispatchIncidentAlerts({
       incidentId: body.incidentId,
       type: body.type,
       description: body.description ?? '',
       lat: body.lat,
       lng: body.lng,
       createdBy: user.id,
-    }).catch((e) => console.error('[push/incident-created]', e));
+    }).catch((e) => console.error('[incident-created]', e));
 
     return NextResponse.json({ ok: true });
   } catch (e) {

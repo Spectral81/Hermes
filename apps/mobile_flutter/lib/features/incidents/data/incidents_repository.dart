@@ -53,10 +53,9 @@ class IncidentsRepository {
     });
     created = Incident.fromJson(Map<String, dynamic>.from(rpc as Map));
 
-    // Dispara push cercano vía Railway (robo/accidente).
+    // Dispara email, WhatsApp crítico y push vía Railway.
     final notifyApi = notificationsWebApi;
-    if (notifyApi != null &&
-        (input.type == IncidentType.robo || input.type == IncidentType.accidente)) {
+    if (notifyApi != null) {
       try {
         await notifyApi.dispatchIncidentCreated(created);
       } catch (_) {
