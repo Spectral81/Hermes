@@ -40,8 +40,9 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _loading = true);
     try {
       await authRepository.login(input);
+      final role = await profileRepository.fetchMyRole();
       if (!mounted) return;
-      context.go('/app/home');
+      context.go(isPrivilegedRole(role) ? '/app/dashboard' : '/app/home');
     } catch (e) {
       final parsed = toAuthErrorMessage(e);
       const fallback = 'Error desconocido. Revisa Supabase y las variables en Railway.';

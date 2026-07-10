@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { Incident, IncidentStatus, IncidentType, Profile, UserRole } from '@uteq/shared';
 import { INCIDENT_LABELS, timeAgo } from '@uteq/shared';
@@ -169,9 +170,16 @@ export function RoleDashboardContent() {
     <main className="hermes-admin-page">
       <div className="hermes-admin-shell">
         <header className="hermes-admin-hero">
-          <p className="hermes-admin-eyebrow">PANEL HERMES</p>
-          <h1>Gestión de incidentes</h1>
-          <p className="hermes-admin-sub">{ROLE_LABELS[role]}</p>
+          <div className="hermes-admin-hero-top">
+            <div>
+              <p className="hermes-admin-eyebrow">PANEL HERMES</p>
+              <h1>Gestión de incidentes</h1>
+              <p className="hermes-admin-sub">{ROLE_LABELS[role]}</p>
+            </div>
+            <Link href="/mapa" className="hermes-admin-map-btn">
+              Ver mapa
+            </Link>
+          </div>
         </header>
 
         {error && <div className="hermes-alert-error">{error}</div>}

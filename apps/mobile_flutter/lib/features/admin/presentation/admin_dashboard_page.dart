@@ -94,6 +94,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           onPressed: () => context.go('/app/profile'),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Ver mapa',
+            onPressed: () => context.go('/app/home'),
+            icon: const Icon(Icons.map_outlined),
+          ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),
