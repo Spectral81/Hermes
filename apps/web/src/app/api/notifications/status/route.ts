@@ -47,9 +47,9 @@ export async function GET() {
     } else if ((profilesWithPhone ?? 0) === 0) {
       hint =
         'Ningún perfil tiene telefono — UPDATE profiles SET telefono = \'5512345678\' WHERE email = \'...\'';
-    } else if (mode === 'template') {
+    } else if (mode === 'text') {
       hint =
-        'Modo plantilla: si está pendiente en Meta, pon WHATSAPP_ALLOW_TEXT=true para pruebas';
+        'Modo texto: Meta suele no entregar. Usa WHATSAPP_TEMPLATE_NAME=hello_world (prueba) o tu plantilla aprobada';
     } else if ((count ?? 0) === 0) {
       hint = 'No hay tokens push — abre la app en cada teléfono con sesión y GPS';
     }

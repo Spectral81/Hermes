@@ -23,10 +23,46 @@ function formatCoords(lat: number, lng: number): string {
   return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
+function buildTemplatePayload(
+  to: string,
+  templateName: string,
+  templateLang: string,
+  who: string,
+  location: string,
+  coords: string,
+): Record<string, unknown> {
+  // hello_world (plantilla de prueba de Meta) no lleva variables.
+  const isHelloWorld = templateName === 'hello_world';
+
+  return {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: isHelloWorld ? 'en_US' : templateLang },
+      ...(isHelloWorld
+        ? {}
+        : {
+            components: [
+              {
+                type: 'body',
+                parameters: [
+                  { type: 'text', text: who },
+                  { type: 'text', text: location },
+                  { type: 'text', text: coords },
+                ],
+              },
+            ],
+          }),
+    },
+  };
+}
+
 /**
  * Alerta SOS por WhatsApp — solo mensajes salientes.
- * Con WHATSAPP_ALLOW_TEXT=true usa texto libre (pruebas / plantilla pendiente).
- * Sin eso, usa la plantilla aprobada en Meta.
+ * Prioriza plantilla (es lo que Meta entrega de verdad).
+ * Texto libre solo como fallback: Meta a menudo lo acepta (200) pero no lo entrega.
  */
 export async function sendSosWhatsApp(
   input: SosWhatsAppInput,
@@ -50,7 +86,6 @@ export async function sendSosWhatsApp(
 
   const templateName = process.env.WHATSAPP_TEMPLATE_NAME?.trim();
   const templateLang = process.env.WHATSAPP_TEMPLATE_LANG?.trim() || 'es_MX';
-  // Preferir texto en pruebas: la plantilla pendiente es rechazada por Meta.
   const allowText = process.env.WHATSAPP_ALLOW_TEXT?.trim() === 'true';
 
   const bodyText = [
@@ -70,7 +105,11 @@ export async function sendSosWhatsApp(
   let mode: 'text' | 'template';
   let payload: Record<string, unknown>;
 
-  if (allowText) {
+  // Plantilla primero: el test de Meta (hello_world) llega; el texto libre a menudo no.
+  if (templateName) {
+    mode = 'template';
+    payload = buildTemplatePayload(to, templateName, templateLang, who, location, coords);
+  } else if (allowText) {
     mode = 'text';
     payload = {
       messaging_product: 'whatsapp',
@@ -78,32 +117,11 @@ export async function sendSosWhatsApp(
       type: 'text',
       text: { body: bodyText },
     };
-  } else if (templateName) {
-    mode = 'template';
-    payload = {
-      messaging_product: 'whatsapp',
-      to,
-      type: 'template',
-      template: {
-        name: templateName,
-        language: { code: templateLang },
-        components: [
-          {
-            type: 'body',
-            parameters: [
-              { type: 'text', text: who },
-              { type: 'text', text: location },
-              { type: 'text', text: coords },
-            ],
-          },
-        ],
-      },
-    };
   } else {
     return {
       ok: false,
       error:
-        'Configura WHATSAPP_TEMPLATE_NAME (producción) o WHATSAPP_ALLOW_TEXT=true (pruebas).',
+        'Configura WHATSAPP_TEMPLATE_NAME (ej. hello_world o hermes_sos_alerta).',
     };
   }
 
@@ -118,11 +136,16 @@ export async function sendSosWhatsApp(
 
   if (!res.ok) {
     const err = await res.text();
-    console.error('[whatsapp/sos] Meta error', { to, mode, err });
+    console.error('[whatsapp/sos] Meta error', { to, mode, templateName, err });
     return { ok: false, error: err || `WhatsApp HTTP ${res.status}`, mode };
   }
 
-  console.info('[whatsapp/sos] enviado', { to, mode });
+  const data = (await res.json().catch(() => null)) as {
+    messages?: { id?: string }[];
+  } | null;
+  const messageId = data?.messages?.[0]?.id;
+
+  console.info('[whatsapp/sos] enviado', { to, mode, templateName, messageId });
   return { ok: true, mode };
 }
 
@@ -142,8 +165,8 @@ export function isSosWhatsAppReady(): boolean {
 
 export function whatsAppSendMode(): 'text' | 'template' | 'none' {
   if (!isWhatsAppConfigured()) return 'none';
-  if (process.env.WHATSAPP_ALLOW_TEXT?.trim() === 'true') return 'text';
   if (process.env.WHATSAPP_TEMPLATE_NAME?.trim()) return 'template';
+  if (process.env.WHATSAPP_ALLOW_TEXT?.trim() === 'true') return 'text';
   return 'none';
 }
 
