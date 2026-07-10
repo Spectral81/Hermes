@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +24,8 @@ class PushService {
   final _local = FlutterLocalNotificationsPlugin();
   GoRouter? _router;
   bool _initialized = false;
+  String? _pendingNavigation;
+  bool _navigationScheduled = false;
 
   Future<void> init(GoRouter router) async {
     if (_initialized) return;
@@ -55,10 +57,18 @@ class PushService {
         onDidReceiveNotificationResponse: (details) {
           final payload = details.payload;
           if (payload != null && payload.isNotEmpty) {
-            _navigateToIncident(payload, action: 'validate');
+            _queueNavigation(payload);
           }
         },
       );
+
+      final launch = await _local.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp == true) {
+        final payload = launch?.notificationResponse?.payload;
+        if (payload != null && payload.isNotEmpty) {
+          _queueNavigation(payload);
+        }
+      }
     }
 
     await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true);
@@ -70,6 +80,7 @@ class PushService {
     Supabase.instance.client.auth.onAuthStateChange.listen((event) {
       if (event.session != null) {
         _registerCurrentToken();
+        _tryNavigatePending();
       }
     });
 
@@ -79,11 +90,14 @@ class PushService {
 
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) {
-      _handleRemoteMessage(initial);
+      _queueFromRemoteMessage(initial);
     }
 
     _initialized = true;
   }
+
+  /// Llamar cuando MaterialApp.router ya está montado.
+  void onAppReady() => _tryNavigatePending();
 
   Future<void> updateLocation(double lat, double lng) async {
     if (!AppEnv.isFirebaseConfigured) return;
@@ -152,33 +166,77 @@ class PushService {
     );
   }
 
-  void _onMessageOpened(RemoteMessage message) => _handleRemoteMessage(message);
+  void _onMessageOpened(RemoteMessage message) => _queueFromRemoteMessage(message);
 
-  void _handleRemoteMessage(RemoteMessage message) {
+  void _queueFromRemoteMessage(RemoteMessage message) {
     final incidentId = message.data['incident_id'];
     final action = message.data['action'] ?? 'validate';
     if (incidentId != null && incidentId.isNotEmpty) {
-      _navigateToIncident(incidentId, action: action);
+      _queueNavigation('$action:$incidentId');
     }
   }
 
-  void _navigateToIncident(String payloadOrId, {String? action}) {
+  void _queueNavigation(String payloadOrId, {String? action}) {
+    if (action != null && !payloadOrId.contains(':')) {
+      _pendingNavigation = '$action:$payloadOrId';
+    } else {
+      _pendingNavigation = payloadOrId;
+    }
+    _tryNavigatePending();
+  }
+
+  void _tryNavigatePending() {
+    if (_pendingNavigation == null || _navigationScheduled) return;
+    _navigationScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _navigationScheduled = false;
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+
+      final pending = _pendingNavigation;
+      if (pending == null) return;
+
+      final router = _router;
+      if (router == null) return;
+
+      if (Supabase.instance.client.auth.currentSession == null) {
+        debugPrint('[push] sesión no lista — navegación pendiente');
+        return;
+      }
+
+      final ok = _navigateToIncident(pending);
+      if (ok) {
+        _pendingNavigation = null;
+      }
+    });
+  }
+
+  bool _navigateToIncident(String payloadOrId) {
     String incidentId = payloadOrId;
-    String resolvedAction = action ?? 'validate';
+    String resolvedAction = 'validate';
 
     if (payloadOrId.contains(':')) {
       final parts = payloadOrId.split(':');
-      resolvedAction = parts[0];
-      incidentId = parts[1];
+      if (parts.length >= 2) {
+        resolvedAction = parts[0];
+        incidentId = parts.sublist(1).join(':');
+      }
     }
 
     final router = _router;
-    if (router == null) return;
+    if (router == null) return false;
 
-    if (resolvedAction == 'validate') {
-      router.push('/app/home/validate/$incidentId');
-    } else {
-      router.push('/app/home/alert/$incidentId');
+    final path = resolvedAction == 'validate'
+        ? '/app/home/validate/$incidentId'
+        : '/app/home/alert/$incidentId';
+
+    try {
+      router.push(path);
+      debugPrint('[push] navegando a $path');
+      return true;
+    } catch (e) {
+      debugPrint('[push] error al navegar: $e');
+      return false;
     }
   }
 }
