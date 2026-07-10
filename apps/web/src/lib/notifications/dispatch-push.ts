@@ -1,8 +1,8 @@
-import { INCIDENT_LABELS, type IncidentType } from '@uteq/shared';
+import { INCIDENT_LABELS, INCIDENT_NEARBY_RADIUS_M, type IncidentType } from '@uteq/shared';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isFcmConfigured, sendFcmToTokens } from './fcm';
 
-const VALIDATION_RADIUS_M = 1500;
+const VALIDATION_RADIUS_M = INCIDENT_NEARBY_RADIUS_M;
 /** Tipos que piden confirmación a usuarios cercanos (web y móvil). */
 const VALIDATION_TYPES: IncidentType[] = ['robo', 'accidente'];
 

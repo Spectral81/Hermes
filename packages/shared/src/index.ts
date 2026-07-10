@@ -104,6 +104,12 @@ export const INCIDENT_EMOJI: Record<IncidentType, string> = {
 /** Validaciones comunitarias necesarias para marcar un reporte como verificado. */
 export const INCIDENT_VALIDATION_TARGET = 3;
 
+/** Radio (m) para mostrar alertas cercanas en mapa/lista y para push de validación. */
+export const INCIDENT_NEARBY_RADIUS_M = 1500;
+
+/** Horas que una alerta permanece visible en mapa/lista. */
+export const INCIDENT_MAX_AGE_HOURS = 24;
+
 /** UI crítica en mapa/lista (robo y SOS). */
 export function isCriticalIncidentType(type: IncidentType): boolean {
   return type === 'robo' || type === 'panico';

@@ -37,10 +37,17 @@ class _AlertsPageState extends State<AlertsPage> {
       final data = await incidentsRepository.fetchIncidents();
       _coords = await _getCoords();
       if (!mounted) return;
-      final recent = data
-          .where((i) => isRecentIso(i.createdAt, maxAgeHours: incidentMaxAgeHours))
-          .toList();
-      setState(() => _incidents = recent);
+      final nearby = filterNearbyRecentIncidents(
+        items: data,
+        createdAtOf: (i) => i.createdAt,
+        latOf: (i) => i.lat,
+        lngOf: (i) => i.lng,
+        userLat: _coords?.lat,
+        userLng: _coords?.lng,
+        maxAgeHours: incidentMaxAgeHours,
+        radiusM: incidentNearbyRadiusM,
+      );
+      setState(() => _incidents = nearby);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -76,14 +83,8 @@ class _AlertsPageState extends State<AlertsPage> {
     final filtered = _filter == null
         ? _incidents
         : _incidents.where((i) => i.type == _filter).toList();
-    final sorted = [...filtered];
-    if (_coords != null) {
-      sorted.sort((a, b) {
-        final da = distanceMeters(_coords!.lat, _coords!.lng, a.lat, a.lng);
-        final db = distanceMeters(_coords!.lat, _coords!.lng, b.lat, b.lng);
-        return da.compareTo(db);
-      });
-    }
+    // Ya vienen ordenadas por más recientes; mantener ese orden tras el filtro de tipo.
+    final sorted = filtered;
 
     Incident? critical;
     for (final i in sorted) {

@@ -224,14 +224,16 @@ class PushService {
     }
 
     final router = _router;
-    if (router == null) return false;
+    if (router == null || incidentId.isEmpty) return false;
 
+    // validate → pantalla de confirmar; verified u otros → detalle.
     final path = resolvedAction == 'validate'
         ? '/app/home/validate/$incidentId'
         : '/app/home/alert/$incidentId';
 
     try {
-      router.push(path);
+      // go() asegura la ruta en el shell activo (push fallaba con router duplicado).
+      router.go(path);
       debugPrint('[push] navegando a $path');
       return true;
     } catch (e) {

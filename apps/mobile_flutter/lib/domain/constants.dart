@@ -8,6 +8,9 @@ const int incidentValidationTarget = 3;
 /// Horas que una alerta permanece visible en el mapa/lista antes de ocultarse.
 const int incidentMaxAgeHours = 24;
 
+/// Radio en metros: solo se muestran alertas dentro de esta distancia.
+const double incidentNearbyRadiusM = 1500;
+
 const Map<IncidentType, String> incidentLabels = {
   IncidentType.robo: 'Robo',
   IncidentType.accidente: 'Accidente',

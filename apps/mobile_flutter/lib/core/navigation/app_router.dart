@@ -15,67 +15,68 @@ import '../auth/auth_state_controller.dart';
 
 final AuthStateController _authState = AuthStateController();
 
-GoRouter get appRouter => GoRouter(
-      refreshListenable: _authState,
-      initialLocation: '/auth',
-      redirect: (context, state) {
-        final atAuth = state.uri.path.startsWith('/auth');
-        final logged = _authState.isAuthenticated;
-        if (!logged && !atAuth) return '/auth';
-        if (logged && atAuth) return '/app/home';
-        return null;
-      },
+/// Una sola instancia: PushService y MaterialApp deben compartir el mismo router.
+final GoRouter appRouter = GoRouter(
+  refreshListenable: _authState,
+  initialLocation: '/auth',
+  redirect: (context, state) {
+    final atAuth = state.uri.path.startsWith('/auth');
+    final logged = _authState.isAuthenticated;
+    if (!logged && !atAuth) return '/auth';
+    if (logged && atAuth) return '/app/home';
+    return null;
+  },
+  routes: [
+    GoRoute(
+      path: '/auth',
+      builder: (_, __) => const WelcomePage(),
       routes: [
-        GoRoute(
-          path: '/auth',
-          builder: (_, __) => const WelcomePage(),
+        GoRoute(path: 'login', builder: (_, __) => const LoginPage()),
+        GoRoute(path: 'register', builder: (_, __) => const RegisterPage()),
+        GoRoute(path: 'verify', builder: (_, __) => const VerifyEmailPage()),
+      ],
+    ),
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, shell) => AppShell(navigationShell: shell),
+      branches: [
+        StatefulShellBranch(
           routes: [
-            GoRoute(path: 'login', builder: (_, __) => const LoginPage()),
-            GoRoute(path: 'register', builder: (_, __) => const RegisterPage()),
-            GoRoute(path: 'verify', builder: (_, __) => const VerifyEmailPage()),
-          ],
-        ),
-        StatefulShellRoute.indexedStack(
-          builder: (context, state, shell) => AppShell(navigationShell: shell),
-          branches: [
-            StatefulShellBranch(
+            GoRoute(
+              path: '/app/home',
+              builder: (_, __) => const HomePage(),
               routes: [
                 GoRoute(
-                  path: '/app/home',
-                  builder: (_, __) => const HomePage(),
-                  routes: [
-                    GoRoute(
-                      path: 'alert/:id',
-                      builder: (context, state) =>
-                          AlertDetailPage(incidentId: state.pathParameters['id']!),
-                    ),
-                    GoRoute(
-                      path: 'validate/:id',
-                      builder: (context, state) =>
-                          ValidateReportPage(incidentId: state.pathParameters['id']!),
-                    ),
-                  ],
+                  path: 'alert/:id',
+                  builder: (context, state) =>
+                      AlertDetailPage(incidentId: state.pathParameters['id']!),
+                ),
+                GoRoute(
+                  path: 'validate/:id',
+                  builder: (context, state) =>
+                      ValidateReportPage(incidentId: state.pathParameters['id']!),
                 ),
               ],
             ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(path: '/app/alerts', builder: (_, __) => const AlertsPage()),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(path: '/app/profile', builder: (_, __) => const ProfilePage()),
-              ],
-            ),
           ],
         ),
-        GoRoute(
-          path: '/app/dashboard',
-          builder: (_, __) => const AdminDashboardPage(),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: '/app/alerts', builder: (_, __) => const AlertsPage()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(path: '/app/profile', builder: (_, __) => const ProfilePage()),
+          ],
         ),
       ],
-    );
+    ),
+    GoRoute(
+      path: '/app/dashboard',
+      builder: (_, __) => const AdminDashboardPage(),
+    ),
+  ],
+);
 
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});

@@ -13,7 +13,7 @@ import { ReportSheet } from '@/components/ReportSheet';
 import { HButton } from '@/components/ui/HButton';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
-import { distanceMeters, formatDistance } from '@/lib/geo';
+import { filterNearbyRecentIncidents, formatDistance } from '@/lib/geo';
 import {
   readStoredUserLocation,
   requestUserLocation,
@@ -114,15 +114,7 @@ export function IncidentsMap() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const sortedAlerts = useMemo((): IncidentWithDistance[] => {
-    if (!coords) {
-      return incidents.map((i) => ({ ...i, distanceM: Infinity }));
-    }
-    return incidents
-      .map((i) => ({
-        ...i,
-        distanceM: distanceMeters(coords.lat, coords.lng, i.lat, i.lng),
-      }))
-      .sort((a, b) => a.distanceM - b.distanceM);
+    return filterNearbyRecentIncidents(incidents, coords);
   }, [incidents, coords]);
 
   const renderMarkers = useCallback((L: any, list: Incident[]) => {
@@ -143,13 +135,16 @@ export function IncidentsMap() {
     try {
       const data = await fetchIncidents();
       setIncidents(data);
-      if (LRef.current) renderMarkers(LRef.current, data);
       setStatus('ready');
     } catch (e) {
       setStatus('error');
       setErrorMsg(e instanceof Error ? e.message : 'No se pudieron cargar los reportes.');
     }
-  }, [renderMarkers]);
+  }, []);
+
+  useEffect(() => {
+    if (LRef.current) renderMarkers(LRef.current, sortedAlerts);
+  }, [sortedAlerts, renderMarkers]);
 
   useEffect(() => {
     async function loadProfile() {
@@ -253,10 +248,6 @@ export function IncidentsMap() {
     };
   }, [loadIncidents]);
 
-  useEffect(() => {
-    if (LRef.current) renderMarkers(LRef.current, incidents);
-  }, [incidents, renderMarkers]);
-
   function handleLikeChange(id: string, likes: number, liked: boolean) {
     setIncidents((prev) =>
       prev.map((i) => (i.id === id ? { ...i, likes_count: likes, liked_by_me: liked } : i)),
@@ -319,7 +310,7 @@ export function IncidentsMap() {
 
             <ul className="web-alerts-list">
               {sortedAlerts.length === 0 && status === 'ready' && (
-                <li className="web-alerts-empty">No hay alertas en el campus</li>
+                <li className="web-alerts-empty">No hay alertas cercanas (1.5 km)</li>
               )}
               {sortedAlerts.map((inc, idx) => {
                 const meta = CATEGORY[inc.type];

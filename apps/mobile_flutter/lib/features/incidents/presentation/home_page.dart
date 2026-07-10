@@ -74,10 +74,17 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadIncidents() async {
     final data = await incidentsRepository.fetchIncidents();
     if (!mounted) return;
-    final recent = data
-        .where((i) => isRecentIso(i.createdAt, maxAgeHours: incidentMaxAgeHours))
-        .toList();
-    setState(() => _incidents = recent);
+    final nearby = filterNearbyRecentIncidents(
+      items: data,
+      createdAtOf: (i) => i.createdAt,
+      latOf: (i) => i.lat,
+      lngOf: (i) => i.lng,
+      userLat: _hasLocationPermission ? _userPos.latitude : null,
+      userLng: _hasLocationPermission ? _userPos.longitude : null,
+      maxAgeHours: incidentMaxAgeHours,
+      radiusM: incidentNearbyRadiusM,
+    );
+    setState(() => _incidents = nearby);
   }
 
   Future<void> _openReportSheet() async {
@@ -94,7 +101,18 @@ class _HomePageState extends State<HomePage> {
           final created = await incidentsRepository.createIncident(input);
           if (!mounted) return;
           setState(() {
-            _incidents = [created, ..._incidents];
+            // Recarga filtrada: la nueva alerta está en tu ubicación → aparece.
+            final merged = [created, ..._incidents.where((i) => i.id != created.id)];
+            _incidents = filterNearbyRecentIncidents(
+              items: merged,
+              createdAtOf: (i) => i.createdAt,
+              latOf: (i) => i.lat,
+              lngOf: (i) => i.lng,
+              userLat: _hasLocationPermission ? _userPos.latitude : null,
+              userLng: _hasLocationPermission ? _userPos.longitude : null,
+              maxAgeHours: incidentMaxAgeHours,
+              radiusM: incidentNearbyRadiusM,
+            );
             _selected = created;
           });
         },

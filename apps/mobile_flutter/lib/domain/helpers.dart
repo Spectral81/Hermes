@@ -35,3 +35,35 @@ bool isRecentIso(String iso, {int maxAgeHours = 24}) {
   final diff = DateTime.now().difference(created.toLocal());
   return diff.inHours < maxAgeHours;
 }
+
+/// Filtra alertas recientes y cercanas; ordena por más recientes primero.
+List<T> filterNearbyRecentIncidents<T>({
+  required List<T> items,
+  required String Function(T) createdAtOf,
+  required double Function(T) latOf,
+  required double Function(T) lngOf,
+  required double? userLat,
+  required double? userLng,
+  int maxAgeHours = 24,
+  double radiusM = 1500,
+}) {
+  final recent = items
+      .where((i) => isRecentIso(createdAtOf(i), maxAgeHours: maxAgeHours))
+      .toList();
+
+  final filtered = (userLat != null && userLng != null)
+      ? recent
+          .where(
+            (i) =>
+                distanceMeters(userLat, userLng, latOf(i), lngOf(i)) <= radiusM,
+          )
+          .toList()
+      : recent;
+
+  filtered.sort((a, b) {
+    final da = DateTime.tryParse(createdAtOf(a)) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final db = DateTime.tryParse(createdAtOf(b)) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return db.compareTo(da);
+  });
+  return filtered;
+}
