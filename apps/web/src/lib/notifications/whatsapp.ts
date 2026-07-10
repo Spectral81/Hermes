@@ -9,19 +9,20 @@ export interface SosWhatsAppInput {
 }
 
 /**
- * WhatsApp usa wa_id mexicano con 521 + 10 dígitos (ej. 5214427807590).
- * El webhook de Meta confirma ese formato; 52 + 10 dígitos a menudo no entrega.
+ * Formato para el campo `to` de Cloud API.
+ * En MX la lista de prueba de Meta suele validar 52 + 10 dígitos (ej. 524427807590).
+ * El wa_id del webhook puede ser 521…; eso es interno y no siempre sirve como `to`.
  */
 function normalizePhoneE164(raw: string): string {
   const digits = raw.replace(/\D/g, '');
-  // Ya viene como 521XXXXXXXXXX (13 dígitos)
-  if (digits.startsWith('521') && digits.length === 13) return digits;
-  // 52 + 10 dígitos sin el 1 móvil → insertar 1
-  if (digits.startsWith('52') && !digits.startsWith('521') && digits.length === 12) {
-    return `521${digits.slice(2)}`;
+  // 521XXXXXXXXXX (wa_id) → 52XXXXXXXXXX para el envío
+  if (digits.startsWith('521') && digits.length === 13) {
+    return `52${digits.slice(3)}`;
   }
-  // 10 dígitos locales MX
-  if (digits.length === 10) return `521${digits}`;
+  // Ya es 52 + 10 dígitos
+  if (digits.startsWith('52') && digits.length === 12) return digits;
+  // 10 dígitos locales
+  if (digits.length === 10) return `52${digits}`;
   return digits;
 }
 
