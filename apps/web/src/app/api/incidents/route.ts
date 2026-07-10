@@ -119,6 +119,14 @@ export async function POST(request: Request) {
       author_nombre: author?.nombre ?? null,
     });
 
+    console.info('[dispatch] incident created', {
+      incidentId: incident.id,
+      type: body.type,
+      createdBy,
+      lat: body.lat,
+      lng: body.lng,
+    });
+
     void dispatchIncidentAlerts({
       incidentId: incident.id,
       type: body.type,

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isFcmConfigured, sendFcmToTokens } from './fcm';
 
 const VALIDATION_RADIUS_M = 1500;
+/** Tipos que piden confirmación a usuarios cercanos (web y móvil). */
 const VALIDATION_TYPES: IncidentType[] = ['robo', 'accidente'];
 
 export interface PushIncidentInput {
@@ -14,7 +15,7 @@ export interface PushIncidentInput {
   createdBy?: string;
 }
 
-/** Push a usuarios cercanos para validar un reporte (robo y accidente). */
+/** Push a usuarios cercanos para validar un reporte (robo y accidente). Misma ruta web/móvil. */
 export async function dispatchNearbyValidationPush(input: PushIncidentInput): Promise<void> {
   if (!isFcmConfigured()) {
     console.warn('[push] FCM no configurado en Railway — omitiendo push cercano');
@@ -43,7 +44,13 @@ export async function dispatchNearbyValidationPush(input: PushIncidentInput): Pr
     .map((r) => r.token);
 
   if (tokens.length === 0) {
-    console.warn('[push] sin tokens cercanos con GPS — revisa device_tokens en Supabase');
+    console.warn('[push] sin tokens cercanos con GPS', {
+      incidentId: input.incidentId,
+      type: input.type,
+      nearbyRaw: rows.length,
+      radiusM: VALIDATION_RADIUS_M,
+      hint: 'Abre la app móvil cerca del reporte con GPS; el creador no recibe el push',
+    });
     return;
   }
 
@@ -62,6 +69,7 @@ export async function dispatchNearbyValidationPush(input: PushIncidentInput): Pr
 
   console.info('[push] nearby validation', {
     incidentId: input.incidentId,
+    type: input.type,
     tokens: tokens.length,
     ...result,
   });

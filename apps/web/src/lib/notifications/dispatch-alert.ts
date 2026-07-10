@@ -29,8 +29,23 @@ async function resolveAuthorName(
   return data?.nombre?.trim() || 'Un usuario de HERMES';
 }
 
-/** Envía email, WhatsApp SOS (solo pánico) y push cercano tras crear un incidente. */
+/** Envía email, WhatsApp SOS (solo pánico) y push cercano tras crear un incidente (web o móvil). */
 export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise<void> {
+  const tasks: Promise<unknown>[] = [];
+
+  // Push cercano primero: no depende de perfiles/email/WhatsApp.
+  // Robo y accidente → usuarios cerca reciben "Validar reporte".
+  tasks.push(
+    dispatchNearbyValidationPush({
+      incidentId: input.incidentId,
+      type: input.type,
+      description: input.description,
+      lat: input.lat,
+      lng: input.lng,
+      createdBy: input.createdBy,
+    }).catch((e) => console.error('[push] nearby', e)),
+  );
+
   const admin = createAdminClient();
   const { data: recipients } = await admin
     .from('profiles')
@@ -39,7 +54,8 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
     .limit(500);
 
   if (!recipients?.length) {
-    console.warn('[dispatch] sin perfiles activos');
+    console.warn('[dispatch] sin perfiles activos — push cercano igual se intentó');
+    await Promise.allSettled(tasks);
     return;
   }
 
@@ -54,8 +70,6 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
     appUrl,
   });
 
-  const tasks: Promise<unknown>[] = [];
-
   if (isBrevoConfigured()) {
     for (const user of recipients) {
       if (!user.email) continue;
@@ -69,7 +83,7 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
     }
   }
 
-  // WhatsApp: solo SOS/pánico — a TODOS con teléfono (incluye quien activó, para poder probar).
+  // WhatsApp: solo SOS/pánico — a TODOS con teléfono.
   if (isSosIncidentType(input.type) && isWhatsAppConfigured()) {
     if (!isSosWhatsAppReady()) {
       console.warn(
@@ -106,18 +120,6 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
       }
     }
   }
-
-  // Push: usuarios cercanos (robo/accidente) para validar el reporte.
-  tasks.push(
-    dispatchNearbyValidationPush({
-      incidentId: input.incidentId,
-      type: input.type,
-      description: input.description,
-      lat: input.lat,
-      lng: input.lng,
-      createdBy: input.createdBy,
-    }).catch((e) => console.error('[push] nearby', e)),
-  );
 
   await Promise.allSettled(tasks);
 }
