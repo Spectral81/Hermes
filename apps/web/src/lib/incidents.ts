@@ -44,11 +44,19 @@ export async function createIncident(input: CreateIncidentInput): Promise<Incide
   return normalizeIncident(data as Record<string, unknown>);
 }
 
-export async function toggleLike(
-  incidentId: string,
-): Promise<{ likes_count: number; liked: boolean }> {
+export async function toggleLike(incidentId: string): Promise<{
+  likes_count: number;
+  liked: boolean;
+  verified: boolean;
+  verified_now: boolean;
+}> {
   const res = await fetch(`/api/incidents/${incidentId}/like`, { method: 'POST' });
   const data = await res.json();
   if (!res.ok) throw toError(data);
-  return data as { likes_count: number; liked: boolean };
+  return {
+    likes_count: Number(data.likes_count ?? 0),
+    liked: Boolean(data.liked),
+    verified: Boolean(data.verified),
+    verified_now: Boolean(data.verified_now),
+  };
 }

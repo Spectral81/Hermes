@@ -6,6 +6,7 @@ import '../../features/auth/presentation/login_page.dart';
 import '../../features/auth/presentation/register_page.dart';
 import '../../features/auth/presentation/verify_email_page.dart';
 import '../../features/auth/presentation/welcome_page.dart';
+import '../../features/events/presentation/events_page.dart';
 import '../../features/incidents/presentation/alert_detail_page.dart';
 import '../../features/incidents/presentation/alerts_page.dart';
 import '../../features/incidents/presentation/home_page.dart';
@@ -66,6 +67,11 @@ final GoRouter appRouter = GoRouter(
         ),
         StatefulShellBranch(
           routes: [
+            GoRoute(path: '/app/events', builder: (_, __) => const EventsPage()),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
             GoRoute(path: '/app/profile', builder: (_, __) => const ProfilePage()),
           ],
         ),
@@ -93,6 +99,7 @@ class AppShell extends StatelessWidget {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Mapa'),
           NavigationDestination(icon: Icon(Icons.notifications_outlined), label: 'Alertas'),
+          NavigationDestination(icon: Icon(Icons.celebration_outlined), label: 'Eventos'),
           NavigationDestination(icon: Icon(Icons.person_outline), label: 'Perfil'),
         ],
       ),

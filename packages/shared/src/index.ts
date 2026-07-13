@@ -93,10 +93,10 @@ export const INCIDENT_COLORS: Record<IncidentType, string> = {
   panico: '#dc2626',
 };
 
-/** Emoji en burbujas del mapa (móvil overlay + web) */
+/** Emoji en burbujas del mapa (móvil + web), alineados con Flutter. */
 export const INCIDENT_EMOJI: Record<IncidentType, string> = {
-  robo: '⚠️',
-  accidente: '🚗',
+  robo: '🥷',
+  accidente: '🚑',
   infraestructura: '🔧',
   panico: '🚨',
 };
@@ -315,4 +315,73 @@ export function toAuthErrorMessage(
   }
 
   return fallback;
+}
+
+/** ——— Eventos / ferias ——— */
+export type CampusEventStatus = 'abierto' | 'cerrado';
+export type VendorCategory = 'comida' | 'snacks' | 'bebidas' | 'postres' | 'otro';
+export type VendorApplicationStatus = 'pendiente' | 'aceptado' | 'rechazado';
+
+export const VENDOR_CATEGORY_LABELS: Record<VendorCategory, string> = {
+  comida: 'Comida',
+  snacks: 'Snacks',
+  bebidas: 'Bebidas',
+  postres: 'Postres',
+  otro: 'Otro',
+};
+
+export const VENDOR_CATEGORY_EMOJI: Record<VendorCategory, string> = {
+  comida: '🌮',
+  snacks: '🥪',
+  bebidas: '☕',
+  postres: '🍓',
+  otro: '🛍️',
+};
+
+export interface CampusEvent {
+  id: string;
+  title: string;
+  description: string;
+  lat: number;
+  lng: number;
+  location_label: string;
+  max_vendors: number;
+  status: CampusEventStatus;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_by: string;
+  created_at: string;
+  accepted_count?: number;
+  pending_count?: number;
+}
+
+export interface EventVendorApplication {
+  id: string;
+  event_id: string;
+  user_id: string;
+  business_name: string;
+  group_name: string;
+  what_they_sell: string;
+  category: VendorCategory;
+  status: VendorApplicationStatus;
+  created_at: string;
+  author_nombre?: string | null;
+}
+
+export interface CreateCampusEventInput {
+  title: string;
+  description: string;
+  lat: number;
+  lng: number;
+  location_label?: string;
+  max_vendors: number;
+  starts_at?: string | null;
+  ends_at?: string | null;
+}
+
+export interface CreateVendorApplicationInput {
+  business_name: string;
+  group_name?: string;
+  what_they_sell: string;
+  category: VendorCategory;
 }

@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   INCIDENT_LABELS,
+  INCIDENT_VALIDATION_TARGET,
   timeAgo,
   type Incident,
 } from '@uteq/shared';
 import type { Profile } from '@uteq/shared';
+import { AppToast, type ToastMessage } from '@/components/AppToast';
 import { IncidentCard } from '@/components/IncidentCard';
 import { ProfileDrawer } from '@/components/ProfileDrawer';
 import { ReportSheet } from '@/components/ReportSheet';
@@ -66,19 +68,17 @@ function markerIcon(L: any, type: Incident['type'], likes: number) {
       ? `<span class="map-pin-badge">${likes > 99 ? '99+' : likes}</span>`
       : '';
   const html = `
-    <div class="map-pin-wrap">
-      <svg width="40" height="50" viewBox="0 0 32 40" aria-hidden="true">
-        <path d="M16 0 C7 0 0 7 0 16 C0 26 16 40 16 40 C16 40 32 26 32 16 C32 7 25 0 16 0 Z" fill="${cat.color}"/>
-        <circle cx="16" cy="14" r="9" fill="#fff"/>
-        <text x="16" y="18.5" text-anchor="middle" fill="${cat.color}" font-weight="800" font-size="13">${cat.glyph}</text>
-      </svg>
+    <div class="map-emoji-wrap">
+      <div class="map-emoji-pin" style="border-color:${cat.color}">
+        <span class="map-emoji-glyph">${cat.glyph}</span>
+      </div>
       ${badge}
     </div>`;
   return L.divIcon({
     html,
     className: '',
-    iconSize: [60, 70],
-    iconAnchor: [30, 70],
+    iconSize: [52, 52],
+    iconAnchor: [26, 26],
   });
 }
 
@@ -112,6 +112,7 @@ export function IncidentsMap() {
   const [locationStatus, setLocationStatus] = useState<'pending' | 'ready' | 'denied'>('pending');
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
+  const [toast, setToast] = useState<ToastMessage | null>(null);
 
   const sortedAlerts = useMemo((): IncidentWithDistance[] => {
     return filterNearbyRecentIncidents(incidents, coords);
@@ -248,13 +249,47 @@ export function IncidentsMap() {
     };
   }, [loadIncidents]);
 
-  function handleLikeChange(id: string, likes: number, liked: boolean) {
+  function handleLikeChange(
+    id: string,
+    likes: number,
+    liked: boolean,
+    verified?: boolean,
+    verifiedNow?: boolean,
+  ) {
     setIncidents((prev) =>
       prev.map((i) => (i.id === id ? { ...i, likes_count: likes, liked_by_me: liked } : i)),
     );
     setSelected((prev) =>
       prev && prev.id === id ? { ...prev, likes_count: likes, liked_by_me: liked } : prev,
     );
+    if (verifiedNow) {
+      setToast({
+        id: `verified-${id}-${Date.now()}`,
+        title: 'Reporte verificado',
+        body: 'La comunidad confirmó esta alerta.',
+        tone: 'success',
+      });
+    } else if (liked) {
+      setToast({
+        id: `validated-${id}-${Date.now()}`,
+        title: 'Validación registrada',
+        body: `Gracias. ${likes}/${INCIDENT_VALIDATION_TARGET} confirmaciones.`,
+        tone: 'info',
+      });
+    }
+  }
+
+  function focusIncident(inc: Incident) {
+    setSelected(inc);
+    mapRef.current?.setView([inc.lat, inc.lng], 17);
+    if ((inc.type === 'robo' || inc.type === 'accidente') && !inc.liked_by_me) {
+      setToast({
+        id: `can-validate-${inc.id}-${Date.now()}`,
+        title: 'Puedes validar este reporte',
+        body: 'Si lo viste, confirma que es real.',
+        tone: 'warning',
+      });
+    }
   }
 
   function addIncidentToMap(incident: Incident) {
@@ -266,19 +301,14 @@ export function IncidentsMap() {
     setSelected(incident);
   }
 
-  function focusIncident(inc: Incident) {
-    setSelected(inc);
-    mapRef.current?.setView([inc.lat, inc.lng], 17);
-  }
-
   return (
     <div className="web-app">
       <header className="web-app-header">
         <HermesLogoLockup size={28} />
         <div className="web-app-header-actions">
-          <HButton onClick={() => { setSelected(null); setReportOpen(true); }}>
-            + Nuevo reporte
-          </HButton>
+          <a className="web-header-link" href="/eventos">
+            Eventos
+          </a>
           <button
             type="button"
             className="web-app-avatar-btn"
@@ -296,7 +326,9 @@ export function IncidentsMap() {
             <div className="web-sidebar-head">
               <div>
                 <h2>Alertas cercanas</h2>
-                <p>{incidents.length} activas · más cerca primero</p>
+                <p>
+                  {sortedAlerts.length} cercanas · más recientes · validación visible
+                </p>
               </div>
               <button
                 type="button"
@@ -315,6 +347,8 @@ export function IncidentsMap() {
               {sortedAlerts.map((inc, idx) => {
                 const meta = CATEGORY[inc.type];
                 const active = selected?.id === inc.id;
+                const canValidate = inc.type === 'robo' || inc.type === 'accidente';
+                const validations = Math.min(inc.likes_count, INCIDENT_VALIDATION_TARGET);
                 return (
                   <li key={inc.id}>
                     <button
@@ -325,7 +359,7 @@ export function IncidentsMap() {
                       <span className="web-alert-rank">{idx + 1}</span>
                       <span
                         className="web-alert-glyph"
-                        style={{ backgroundColor: meta.bg, color: meta.color }}
+                        style={{ backgroundColor: meta.bg }}
                       >
                         {meta.glyph}
                       </span>
@@ -338,10 +372,19 @@ export function IncidentsMap() {
                         </span>
                         <small>
                           {formatDistance(inc.distanceM)} · {timeAgo(inc.created_at)}
+                          {canValidate
+                            ? ` · ${validations}/${INCIDENT_VALIDATION_TARGET} validaciones`
+                            : ''}
                         </small>
                       </span>
-                      {inc.likes_count > 0 && (
-                        <span className="web-alert-likes">{inc.likes_count}</span>
+                      {canValidate && (
+                        <span
+                          className={`web-alert-likes${
+                            validations >= INCIDENT_VALIDATION_TARGET ? ' web-alert-likes-ok' : ''
+                          }`}
+                        >
+                          {validations}/{INCIDENT_VALIDATION_TARGET}
+                        </span>
                       )}
                     </button>
                   </li>
@@ -397,8 +440,22 @@ export function IncidentsMap() {
               Ubicación no disponible. Mostrando campus UTEQ.
             </div>
           )}
+
+          <button
+            type="button"
+            className="web-fab"
+            onClick={() => {
+              setSelected(null);
+              setReportOpen(true);
+            }}
+            aria-label="Nuevo reporte"
+          >
+            +
+          </button>
         </main>
       </div>
+
+      <AppToast toast={toast} onDismiss={() => setToast(null)} />
 
       <ReportSheet
         open={reportOpen}

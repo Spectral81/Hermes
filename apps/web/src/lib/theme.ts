@@ -1,4 +1,5 @@
 import type { IncidentType } from '@uteq/shared';
+import { INCIDENT_EMOJI, INCIDENT_LABELS } from '@uteq/shared';
 
 export const HERMES = {
   blue: '#3B82F6',
@@ -37,11 +38,27 @@ export interface CategoryMeta {
   glyph: string;
 }
 
+/** Mismos emoji que la app móvil (círculo en mapa). */
 export const CATEGORY: Record<IncidentType, CategoryMeta> = {
-  robo: { color: '#EF4444', bg: '#FEF2F2', label: 'Robo', glyph: '⚠' },
-  accidente: { color: '#F59E0B', bg: '#FFFBEB', label: 'Accidente', glyph: '✚' },
-  infraestructura: { color: '#3B82F6', bg: '#EFF6FF', label: 'Falla', glyph: '⚡' },
-  panico: { color: '#DC2626', bg: '#FEE2E2', label: 'SOS', glyph: '!' },
+  robo: { color: '#EF4444', bg: '#FEF2F2', label: INCIDENT_LABELS.robo, glyph: INCIDENT_EMOJI.robo },
+  accidente: {
+    color: '#F59E0B',
+    bg: '#FFFBEB',
+    label: INCIDENT_LABELS.accidente,
+    glyph: INCIDENT_EMOJI.accidente,
+  },
+  infraestructura: {
+    color: '#3B82F6',
+    bg: '#EFF6FF',
+    label: INCIDENT_LABELS.infraestructura,
+    glyph: INCIDENT_EMOJI.infraestructura,
+  },
+  panico: {
+    color: '#DC2626',
+    bg: '#FEE2E2',
+    label: INCIDENT_LABELS.panico,
+    glyph: INCIDENT_EMOJI.panico,
+  },
 };
 
 export const AVATAR_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899', '#6366F1'];

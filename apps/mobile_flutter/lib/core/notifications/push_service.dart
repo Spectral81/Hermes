@@ -170,7 +170,12 @@ class PushService {
 
   void _queueFromRemoteMessage(RemoteMessage message) {
     final incidentId = message.data['incident_id'];
+    final eventId = message.data['event_id'];
     final action = message.data['action'] ?? 'validate';
+    if (action == 'event' && eventId != null && eventId.isNotEmpty) {
+      _queueNavigation('event:$eventId');
+      return;
+    }
     if (incidentId != null && incidentId.isNotEmpty) {
       _queueNavigation('$action:$incidentId');
     }
@@ -229,7 +234,9 @@ class PushService {
     // validate → pantalla de confirmar; verified u otros → detalle.
     final path = resolvedAction == 'validate'
         ? '/app/home/validate/$incidentId'
-        : '/app/home/alert/$incidentId';
+        : resolvedAction == 'event'
+            ? '/app/events'
+            : '/app/home/alert/$incidentId';
 
     try {
       // go() asegura la ruta en el shell activo (push fallaba con router duplicado).
