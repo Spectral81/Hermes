@@ -39,11 +39,41 @@ function buildTemplatePayload(
   templateName: string,
   templateLang: string,
   who: string,
-  location: string,
+  locationUrl: string,
   coords: string,
+  lat: number,
+  lng: number,
 ): Record<string, unknown> {
   // hello_world (plantilla de prueba de Meta) no lleva variables.
   const isHelloWorld = templateName === 'hello_world';
+
+  // hermes_sos_alerta: header Location + body {{1}} nombre, {{2}} link, {{3}} coords
+  const components = isHelloWorld
+    ? undefined
+    : [
+        {
+          type: 'header',
+          parameters: [
+            {
+              type: 'location',
+              location: {
+                latitude: String(lat),
+                longitude: String(lng),
+                name: 'Alerta SOS — HERMES UTEQ',
+                address: coords,
+              },
+            },
+          ],
+        },
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: who },
+            { type: 'text', text: locationUrl },
+            { type: 'text', text: coords },
+          ],
+        },
+      ];
 
   return {
     messaging_product: 'whatsapp',
@@ -52,20 +82,7 @@ function buildTemplatePayload(
     template: {
       name: templateName,
       language: { code: isHelloWorld ? 'en_US' : templateLang },
-      ...(isHelloWorld
-        ? {}
-        : {
-            components: [
-              {
-                type: 'body',
-                parameters: [
-                  { type: 'text', text: who },
-                  { type: 'text', text: location },
-                  { type: 'text', text: coords },
-                ],
-              },
-            ],
-          }),
+      ...(components ? { components } : {}),
     },
   };
 }
@@ -96,7 +113,8 @@ export async function sendSosWhatsApp(
   const detail = (input.description?.trim() || 'Sin detalle adicional').slice(0, 200);
 
   const templateName = process.env.WHATSAPP_TEMPLATE_NAME?.trim();
-  const templateLang = process.env.WHATSAPP_TEMPLATE_LANG?.trim() || 'es_MX';
+  // Plantilla actual en Meta está en English → código "en"
+  const templateLang = process.env.WHATSAPP_TEMPLATE_LANG?.trim() || 'en';
   const allowText = process.env.WHATSAPP_ALLOW_TEXT?.trim() === 'true';
 
   const bodyText = [
@@ -119,7 +137,16 @@ export async function sendSosWhatsApp(
   // Plantilla primero: el test de Meta (hello_world) llega; el texto libre a menudo no.
   if (templateName) {
     mode = 'template';
-    payload = buildTemplatePayload(to, templateName, templateLang, who, location, coords);
+    payload = buildTemplatePayload(
+      to,
+      templateName,
+      templateLang,
+      who,
+      location,
+      coords,
+      input.lat,
+      input.lng,
+    );
   } else if (allowText) {
     mode = 'text';
     payload = {
