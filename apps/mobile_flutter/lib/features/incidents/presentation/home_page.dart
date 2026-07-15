@@ -1,18 +1,37 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/di/repositories.dart';
 import '../../../core/notifications/push_service.dart';
 import '../../../domain/constants.dart';
 import '../../../domain/helpers.dart';
 import '../../../domain/models.dart';
+import 'animated_asset_icon.dart';
 import 'incident_marker.dart';
 import 'report_sheet.dart';
 
 const _campus = LatLng(20.6534, -100.4045);
+
+class _TodayEvent {
+  const _TodayEvent({
+    required this.id,
+    required this.title,
+    required this.lat,
+    required this.lng,
+  });
+  final String id;
+  final String title;
+  final double lat;
+  final double lng;
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,6 +43,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _mapCtrl = MapController();
   List<Incident> _incidents = [];
+  List<_TodayEvent> _todayEvents = [];
   Incident? _selected;
   bool _loading = true;
   bool _hasLocationPermission = false;
@@ -31,17 +51,30 @@ class _HomePageState extends State<HomePage> {
   LatLng _userPos = _campus;
   IncidentType? _filter;
   UserRole _role = UserRole.estudiante;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _bootstrap();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted) return;
+      unawaited(_loadIncidents(silent: true));
+      unawaited(_loadTodayEvents());
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _bootstrap() async {
     try {
       await _resolveLocation();
       await _loadIncidents();
+      await _loadTodayEvents();
     } catch (e) {
       _loadError = e.toString().replaceFirst('Exception: ', '');
     }
@@ -71,20 +104,65 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _loadIncidents() async {
-    final data = await incidentsRepository.fetchIncidents();
-    if (!mounted) return;
-    final nearby = filterNearbyRecentIncidents(
-      items: data,
-      createdAtOf: (i) => i.createdAt,
-      latOf: (i) => i.lat,
-      lngOf: (i) => i.lng,
-      userLat: _hasLocationPermission ? _userPos.latitude : null,
-      userLng: _hasLocationPermission ? _userPos.longitude : null,
-      maxAgeHours: incidentMaxAgeHours,
-      radiusM: incidentNearbyRadiusM,
-    );
-    setState(() => _incidents = nearby);
+  Future<void> _loadIncidents({bool silent = false}) async {
+    try {
+      final data = await incidentsRepository.fetchIncidents();
+      if (!mounted) return;
+      final nearby = filterNearbyRecentIncidents(
+        items: data,
+        createdAtOf: (i) => i.createdAt,
+        latOf: (i) => i.lat,
+        lngOf: (i) => i.lng,
+        userLat: _hasLocationPermission ? _userPos.latitude : null,
+        userLng: _hasLocationPermission ? _userPos.longitude : null,
+        maxAgeHours: incidentMaxAgeHours,
+        radiusM: incidentNearbyRadiusM,
+      );
+      setState(() {
+        _incidents = nearby;
+        if (!silent) _loadError = null;
+      });
+    } catch (e) {
+      if (!silent && mounted) {
+        setState(() => _loadError = e.toString().replaceFirst('Exception: ', ''));
+      }
+    }
+  }
+
+  Future<void> _loadTodayEvents() async {
+    final base = AppEnv.webApiUrl;
+    if (base == null) return;
+    try {
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      final dio = Dio(BaseOptions(baseUrl: base));
+      final res = await dio.get(
+        '/api/events',
+        options: Options(headers: token != null ? {'Authorization': 'Bearer $token'} : null),
+      );
+      final list = (res.data as List?) ?? [];
+      final now = DateTime.now();
+      final today = <_TodayEvent>[];
+      for (final raw in list) {
+        final e = Map<String, dynamic>.from(raw as Map);
+        if (e['status'] != 'abierto') continue;
+        final starts = DateTime.tryParse('${e['starts_at']}')?.toLocal();
+        if (starts == null) continue;
+        if (starts.year != now.year || starts.month != now.month || starts.day != now.day) {
+          continue;
+        }
+        today.add(
+          _TodayEvent(
+            id: '${e['id']}',
+            title: '${e['title']}',
+            lat: (e['lat'] as num).toDouble(),
+            lng: (e['lng'] as num).toDouble(),
+          ),
+        );
+      }
+      if (mounted) setState(() => _todayEvents = today);
+    } catch (_) {
+      // no bloquear mapa
+    }
   }
 
   Future<void> _openReportSheet() async {
@@ -101,7 +179,6 @@ class _HomePageState extends State<HomePage> {
           final created = await incidentsRepository.createIncident(input);
           if (!mounted) return;
           setState(() {
-            // Recarga filtrada: la nueva alerta está en tu ubicación → aparece.
             final merged = [created, ..._incidents.where((i) => i.id != created.id)];
             _incidents = filterNearbyRecentIncidents(
               items: merged,
@@ -115,6 +192,7 @@ class _HomePageState extends State<HomePage> {
             );
             _selected = created;
           });
+          unawaited(_loadIncidents(silent: true));
         },
       ),
     );
@@ -165,8 +243,9 @@ class _HomePageState extends State<HomePage> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.mobile_flutter',
+                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                subdomains: const ['a', 'b', 'c', 'd'],
+                userAgentPackageName: 'mx.edu.uteq.hermes',
               ),
               if (_hasLocationPermission)
                 MarkerLayer(
@@ -190,6 +269,34 @@ class _HomePageState extends State<HomePage> {
                         type: inc.type,
                         selected: _selected?.id == inc.id,
                         onTap: () => setState(() => _selected = inc),
+                      ),
+                    ),
+                  for (final ev in _todayEvents)
+                    Marker(
+                      point: LatLng(ev.lat, ev.lng),
+                      width: 56,
+                      height: 56,
+                      child: GestureDetector(
+                        onTap: () => context.go('/app/events'),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFF8B5CF6), width: 2.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                                blurRadius: 10,
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: const AnimatedAssetIcon(
+                            assetPath: 'assets/markers/kermes-map.png',
+                            size: 34,
+                            fallbackEmoji: '🎪',
+                          ),
+                        ),
                       ),
                     ),
                 ],

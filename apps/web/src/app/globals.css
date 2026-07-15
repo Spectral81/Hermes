@@ -609,7 +609,8 @@ body {
 }
 
 .map-spy-icon,
-.spy-robo-icon {
+.spy-robo-icon,
+.incident-anim-icon {
   width: 30px;
   height: 30px;
   object-fit: contain;
@@ -654,7 +655,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .map-spy-float,
   .map-spy-icon,
-  .spy-robo-icon {
+  .spy-robo-icon,
+  .incident-anim-icon {
     animation: none;
   }
 }
@@ -3023,6 +3025,16 @@ body {
 .events-item.active {
   border-color: #8b5cf6;
   box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+}
+.events-item-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.events-my-app {
+  margin: 8px 0 0;
+  font-weight: 600;
+  color: #059669;
 }
 .events-status.open,
 .events-meta .open,

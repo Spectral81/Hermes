@@ -34,6 +34,43 @@ export async function dispatchEventCreatedPush(input: {
   console.info('[push] event created', { eventId: input.eventId, tokens: tokens.length, ...result });
 }
 
-/** Re-export for typing convenience in routes. */
-export type { IncidentType };
-export { INCIDENT_LABELS };
+/** Notifica al usuario que su solicitud fue aceptada. */
+export async function dispatchApplicationAcceptedPush(input: {
+  userId: string;
+  eventId: string;
+  eventTitle: string;
+  businessName: string;
+}): Promise<void> {
+  if (!isFcmConfigured()) return;
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('device_tokens')
+    .select('token')
+    .eq('user_id', input.userId);
+
+  if (error) {
+    console.error('[push/event-accepted]', error.message);
+    return;
+  }
+
+  const tokens = (data ?? []).map((r) => r.token as string).filter(Boolean);
+  if (tokens.length === 0) return;
+
+  const result = await sendFcmToTokens(tokens, {
+    title: '¡Participación aceptada! 🎉',
+    body: `Tu negocio "${input.businessName}" fue aceptado en ${input.eventTitle}.`,
+    data: {
+      event_id: input.eventId,
+      action: 'event_accepted',
+    },
+  });
+
+  console.info('[push] event application accepted', {
+    userId: input.userId,
+    eventId: input.eventId,
+    tokens: tokens.length,
+    ...result,
+  });
+}
+

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { Profile, VendorApplicationStatus } from '@uteq/shared';
+import { dispatchApplicationAcceptedPush } from '@/lib/notifications/dispatch-event';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/request-auth';
 
@@ -45,6 +46,22 @@ export async function PATCH(
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    if (body.status === 'aceptado' && data) {
+      const { data: event } = await admin
+        .from('campus_events')
+        .select('title')
+        .eq('id', id)
+        .maybeSingle();
+
+      void dispatchApplicationAcceptedPush({
+        userId: data.user_id as string,
+        eventId: id,
+        eventTitle: (event?.title as string) ?? 'Evento',
+        businessName: data.business_name as string,
+      }).catch((err) => console.error('[dispatchApplicationAcceptedPush]', err));
+    }
+
     return NextResponse.json(data);
   } catch (e) {
     return NextResponse.json(

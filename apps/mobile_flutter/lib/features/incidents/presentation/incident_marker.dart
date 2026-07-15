@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/constants.dart';
 import '../../../domain/models.dart';
-import 'spy_robo_icon.dart';
+import 'animated_asset_icon.dart';
 
-/// Pin circular estilo Zenly con el emoji/icono del tipo de incidente.
-/// Los incidentes críticos (robo/pánico) laten sutilmente para llamar la atención.
+/// Pin circular con icono animado del tipo de incidente.
 class IncidentMarker extends StatefulWidget {
   const IncidentMarker({
     super.key,
@@ -34,7 +33,7 @@ class _IncidentMarkerState extends State<IncidentMarker>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    _pulse = Tween<double>(begin: 1.0, end: 1.15).animate(
+    _pulse = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }
@@ -48,13 +47,8 @@ class _IncidentMarkerState extends State<IncidentMarker>
   @override
   Widget build(BuildContext context) {
     final color = incidentColors[widget.type] ?? const Color(0xFF2563EB);
-    final emoji = incidentEmoji[widget.type] ?? '📍';
     final critical = isCriticalIncidentType(widget.type);
-    final isRobo = widget.type == IncidentType.robo;
-
-    Widget glyph = isRobo
-        ? SpyRoboIcon(size: widget.selected ? 30 : 26)
-        : Text(emoji, style: const TextStyle(fontSize: 22));
+    final wire = incidentTypeToWire(widget.type);
 
     Widget circle = Container(
       width: 44,
@@ -72,19 +66,14 @@ class _IncidentMarkerState extends State<IncidentMarker>
         ],
       ),
       alignment: Alignment.center,
-      child: glyph,
+      child: IncidentTypeIcon(
+        type: wire,
+        size: widget.selected ? 30 : 26,
+      ),
     );
 
-    // El espía ya tiene su propia animación; solo laten pánico (y robo como halo del pin).
-    if (critical && !isRobo) {
+    if (critical) {
       circle = ScaleTransition(scale: _pulse, child: circle);
-    } else if (critical && isRobo) {
-      circle = ScaleTransition(
-        scale: Tween<double>(begin: 1.0, end: 1.06).animate(
-          CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-        ),
-        child: circle,
-      );
     }
 
     return GestureDetector(

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/constants.dart';
 import '../../../domain/models.dart';
-import 'spy_robo_icon.dart';
+import 'animated_asset_icon.dart';
 
 class ReportSheet extends StatefulWidget {
   const ReportSheet({
@@ -22,14 +22,12 @@ class _CategoryMeta {
   const _CategoryMeta({
     required this.type,
     required this.label,
-    required this.icon,
     required this.color,
     required this.bg,
   });
 
   final IncidentType type;
   final String label;
-  final IconData icon;
   final Color color;
   final Color bg;
 }
@@ -38,28 +36,24 @@ const List<_CategoryMeta> _categories = [
   _CategoryMeta(
     type: IncidentType.robo,
     label: 'Robo',
-    icon: Icons.warning_amber_rounded,
     color: Color(0xFFEF4444),
     bg: Color(0xFFFEF2F2),
   ),
   _CategoryMeta(
     type: IncidentType.accidente,
     label: 'Accidente',
-    icon: Icons.add_circle_outline,
     color: Color(0xFFF59E0B),
     bg: Color(0xFFFFFBEB),
   ),
   _CategoryMeta(
     type: IncidentType.infraestructura,
     label: 'Falla',
-    icon: Icons.bolt,
     color: Color(0xFF3B82F6),
     bg: Color(0xFFEFF6FF),
   ),
   _CategoryMeta(
     type: IncidentType.panico,
     label: 'Emergencia',
-    icon: Icons.sos,
     color: Color(0xFFDC2626),
     bg: Color(0xFFFEE2E2),
   ),
@@ -237,18 +231,16 @@ class _ReportSheetState extends State<ReportSheet> {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: meta.type == IncidentType.robo
-                    ? Colors.white
-                    : meta.color,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: meta.type == IncidentType.robo
-                    ? Border.all(color: meta.color, width: 1.5)
-                    : null,
+                border: Border.all(color: meta.color, width: 1.5),
               ),
               alignment: Alignment.center,
-              child: meta.type == IncidentType.robo
-                  ? const SpyRoboIcon(size: 26)
-                  : Icon(meta.icon, color: Colors.white, size: 20),
+              child: IncidentTypeIcon(
+                type: incidentTypeToWire(meta.type),
+                size: 26,
+                animate: selected,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(

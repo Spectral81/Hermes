@@ -5,6 +5,7 @@ import {
   INCIDENT_LABELS,
   INCIDENT_VALIDATION_TARGET,
   timeAgo,
+  type CampusEvent,
   type Incident,
 } from '@uteq/shared';
 import type { Profile } from '@uteq/shared';
@@ -76,12 +77,15 @@ function markerIcon(L: any, type: Incident['type'], likes: number) {
     likes > 0
       ? `<span class="map-pin-badge">${likes > 99 ? '99+' : likes}</span>`
       : '';
-  const glyph =
-    type === 'robo'
-      ? `<span class="map-spy-float"><img class="map-spy-icon" src="/markers/spy.png" alt="Robo" width="32" height="32" draggable="false" /></span>`
-      : `<span class="map-emoji-glyph">${cat.glyph}</span>`;
+  const srcByType: Record<Incident['type'], string> = {
+    robo: '/markers/spy.png',
+    accidente: '/markers/slip.png',
+    infraestructura: '/markers/hammer.png',
+    panico: '/markers/sos.png',
+  };
+  const glyph = `<span class="map-spy-float"><img class="map-spy-icon" src="${srcByType[type]}" alt="${cat.label}" width="32" height="32" draggable="false" /></span>`;
   const html = `
-    <div class="map-emoji-wrap${type === 'robo' ? ' map-emoji-wrap-spy' : ''}">
+    <div class="map-emoji-wrap map-emoji-wrap-spy">
       <div class="map-emoji-pin" style="border-color:${cat.color}">
         ${glyph}
       </div>
@@ -93,6 +97,34 @@ function markerIcon(L: any, type: Incident['type'], likes: number) {
     iconSize: [52, 52],
     iconAnchor: [26, 26],
   });
+}
+
+function eventMarkerIcon(L: any, title: string) {
+  const html = `
+    <div class="map-emoji-wrap map-emoji-wrap-spy">
+      <div class="map-emoji-pin" style="border-color:#8B5CF6">
+        <span class="map-spy-float">
+          <img class="map-spy-icon" src="/markers/kermes-map.png" alt="${title.replace(/"/g, '')}" width="34" height="34" draggable="false" />
+        </span>
+      </div>
+    </div>`;
+  return L.divIcon({
+    html,
+    className: '',
+    iconSize: [56, 56],
+    iconAnchor: [28, 28],
+  });
+}
+
+function isSameLocalDay(iso: string | null | undefined, ref = new Date()): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  return (
+    d.getFullYear() === ref.getFullYear() &&
+    d.getMonth() === ref.getMonth() &&
+    d.getDate() === ref.getDate()
+  );
 }
 
 /** Ubicación rápida para pintar el mapa (caché o campus). El GPS se pide aparte. */
@@ -110,6 +142,7 @@ export function IncidentsMap() {
   const LRef = useRef<any>(null);
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [todayEvents, setTodayEvents] = useState<CampusEvent[]>([]);
   const [selected, setSelected] = useState<Incident | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -128,7 +161,7 @@ export function IncidentsMap() {
     return filterNearbyRecentIncidents(incidents, coords);
   }, [incidents, coords]);
 
-  const renderMarkers = useCallback((L: any, list: Incident[]) => {
+  const renderMarkers = useCallback((L: any, list: Incident[], events: CampusEvent[]) => {
     const layer = layerRef.current;
     if (!layer) return;
     layer.clearLayers();
@@ -138,6 +171,17 @@ export function IncidentsMap() {
         icon: markerIcon(L, inc.type, inc.likes_count),
       });
       marker.on('click', () => setSelected(inc));
+      marker.addTo(layer);
+    }
+    for (const ev of events) {
+      if (!Number.isFinite(ev.lat) || !Number.isFinite(ev.lng)) continue;
+      const marker = L.marker([ev.lat, ev.lng], {
+        icon: eventMarkerIcon(L, ev.title),
+        zIndexOffset: 200,
+      });
+      marker.bindPopup(
+        `<strong>${ev.title}</strong><br/>${ev.location_label || 'Campus'}<br/><a href="/eventos">Ver evento</a>`,
+      );
       marker.addTo(layer);
     }
   }, []);
@@ -153,9 +197,33 @@ export function IncidentsMap() {
     }
   }, []);
 
+  const loadTodayEvents = useCallback(async () => {
+    try {
+      const res = await fetch('/api/events', { cache: 'no-store', credentials: 'include' });
+      if (!res.ok) return;
+      const data = (await res.json()) as CampusEvent[];
+      setTodayEvents(
+        (data ?? []).filter(
+          (e) => e.status === 'abierto' && isSameLocalDay(e.starts_at),
+        ),
+      );
+    } catch {
+      // no bloquear mapa
+    }
+  }, []);
+
   useEffect(() => {
-    if (LRef.current) renderMarkers(LRef.current, sortedAlerts);
-  }, [sortedAlerts, renderMarkers]);
+    if (LRef.current) renderMarkers(LRef.current, sortedAlerts, todayEvents);
+  }, [sortedAlerts, todayEvents, renderMarkers]);
+
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const timer = window.setInterval(() => {
+      void loadIncidents();
+      void loadTodayEvents();
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [status, loadIncidents, loadTodayEvents]);
 
   useEffect(() => {
     async function loadProfile() {
@@ -269,6 +337,7 @@ export function IncidentsMap() {
         map.on('click', () => setSelected(null));
 
         await loadIncidents();
+        await loadTodayEvents();
 
         if (cancelled) return;
 
@@ -302,7 +371,7 @@ export function IncidentsMap() {
         userMarkerRef.current = null;
       }
     };
-  }, [loadIncidents, applyUserLocation]);
+  }, [loadIncidents, loadTodayEvents, applyUserLocation]);
 
   function handleLikeChange(
     id: string,
@@ -539,6 +608,7 @@ export function IncidentsMap() {
           setReportOpen(false);
           addIncidentToMap(incident);
           loadIncidents();
+          void loadTodayEvents();
         }}
       />
 

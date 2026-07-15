@@ -148,7 +148,17 @@ class PushService {
     if (notification == null) return;
 
     final incidentId = message.data['incident_id'] ?? '';
+    final eventId = message.data['event_id'] ?? '';
     final action = message.data['action'] ?? 'validate';
+
+    String? payload;
+    if (action == 'event' || action == 'event_accepted') {
+      if (eventId.isNotEmpty) {
+        payload = '$action:$eventId';
+      }
+    } else if (incidentId.isNotEmpty) {
+      payload = '$action:$incidentId';
+    }
 
     _local.show(
       notification.hashCode,
@@ -162,7 +172,7 @@ class PushService {
           priority: Priority.high,
         ),
       ),
-      payload: incidentId.isNotEmpty ? '$action:$incidentId' : null,
+      payload: payload,
     );
   }
 
@@ -172,8 +182,10 @@ class PushService {
     final incidentId = message.data['incident_id'];
     final eventId = message.data['event_id'];
     final action = message.data['action'] ?? 'validate';
-    if (action == 'event' && eventId != null && eventId.isNotEmpty) {
-      _queueNavigation('event:$eventId');
+    if ((action == 'event' || action == 'event_accepted') &&
+        eventId != null &&
+        eventId.isNotEmpty) {
+      _queueNavigation('$action:$eventId');
       return;
     }
     if (incidentId != null && incidentId.isNotEmpty) {
@@ -231,10 +243,10 @@ class PushService {
     final router = _router;
     if (router == null || incidentId.isEmpty) return false;
 
-    // validate → pantalla de confirmar; verified u otros → detalle.
+    // validate → pantalla de confirmar; event / event_accepted → eventos; resto → detalle.
     final path = resolvedAction == 'validate'
         ? '/app/home/validate/$incidentId'
-        : resolvedAction == 'event'
+        : (resolvedAction == 'event' || resolvedAction == 'event_accepted')
             ? '/app/events'
             : '/app/home/alert/$incidentId';
 

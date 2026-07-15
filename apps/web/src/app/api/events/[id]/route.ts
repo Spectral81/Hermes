@@ -4,11 +4,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getRequestUser } from '@/lib/supabase/request-auth';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   try {
+    const user = await getRequestUser(request);
     const admin = createAdminClient();
     const { data: event, error } = await admin.from('campus_events').select('*').eq('id', id).maybeSingle();
     if (error) throw new Error(error.message);
@@ -29,12 +30,24 @@ export async function GET(
       }
     }
 
+    let myApplication = null;
+    if (user) {
+      const mine = (apps ?? []).find((a) => a.user_id === user.id);
+      if (mine) {
+        myApplication = {
+          ...mine,
+          author_nombre: names.get(mine.user_id as string) ?? null,
+        };
+      }
+    }
+
     return NextResponse.json({
       event,
       applications: (apps ?? []).map((a) => ({
         ...a,
         author_nombre: names.get(a.user_id as string) ?? null,
       })),
+      my_application: myApplication,
     });
   } catch (e) {
     return NextResponse.json(
@@ -111,21 +124,37 @@ export async function POST(
       return NextResponse.json({ error: 'Ya no hay cupo de puestos' }, { status: 400 });
     }
 
+    const { data: existing } = await admin
+      .from('event_vendor_applications')
+      .select('id, status')
+      .eq('event_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existing) {
+      const statusLabel =
+        existing.status === 'aceptado'
+          ? 'aceptada'
+          : existing.status === 'pendiente'
+            ? 'pendiente de revisión'
+            : 'registrada';
+      return NextResponse.json(
+        { error: `Ya tienes una solicitud ${statusLabel} para este evento.` },
+        { status: 409 },
+      );
+    }
+
     const { data, error } = await admin
       .from('event_vendor_applications')
-      .upsert(
-        {
-          event_id: id,
-          user_id: user.id,
-          business_name: body.business_name.trim(),
-          group_name: body.group_name?.trim() ?? '',
-          what_they_sell: body.what_they_sell.trim(),
-          category: body.category,
-          status: 'pendiente',
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'event_id,user_id' },
-      )
+      .insert({
+        event_id: id,
+        user_id: user.id,
+        business_name: body.business_name.trim(),
+        group_name: body.group_name?.trim() ?? '',
+        what_they_sell: body.what_they_sell.trim(),
+        category: body.category,
+        status: 'pendiente',
+      })
       .select('*')
       .single();
 

@@ -68,6 +68,9 @@ export async function POST(request: Request) {
     if (!body.title?.trim() || body.lat == null || body.lng == null || !body.max_vendors) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
     }
+    if (!body.starts_at?.trim()) {
+      return NextResponse.json({ error: 'Indica la fecha del evento' }, { status: 400 });
+    }
 
     const admin = createAdminClient();
     const { data, error } = await admin

@@ -1,10 +1,13 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/di/repositories.dart';
 import '../../../domain/constants.dart';
 import '../../../domain/models.dart';
+import '../../incidents/presentation/animated_asset_icon.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -24,30 +27,27 @@ const List<String> _months = [
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ];
 
+const List<String> _monthShort = [
+  'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN',
+  'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC',
+];
+
 class _EventItem {
   const _EventItem({
     required this.month,
     required this.day,
     required this.title,
     required this.subtitle,
+    required this.statusLabel,
     required this.color,
   });
   final String month;
   final String day;
   final String title;
   final String subtitle;
+  final String statusLabel;
   final Color color;
 }
-
-const List<_EventItem> _events = [
-  _EventItem(
-    month: 'MAY',
-    day: '20',
-    title: 'Kermés UTEQ 2026',
-    subtitle: 'Feria de comida y emprendimientos',
-    color: Color(0xFF8B5CF6),
-  ),
-];
 
 const Map<IncidentType, IconData> _typeIcons = {
   IncidentType.robo: Icons.warning_amber_rounded,
@@ -60,12 +60,84 @@ class _ProfilePageState extends State<ProfilePage> {
   UserRole _role = UserRole.estudiante;
   Map<String, dynamic>? _profile;
   List<Incident> _incidents = [];
+  List<_EventItem> _upcomingEvents = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  String _statusLabel(String? status) {
+    switch (status) {
+      case 'aceptado':
+        return 'Aceptado';
+      case 'pendiente':
+        return 'Pendiente';
+      case 'rechazado':
+        return 'Rechazado';
+      default:
+        return status ?? '';
+    }
+  }
+
+  Color _statusColor(String? status) {
+    switch (status) {
+      case 'aceptado':
+        return const Color(0xFF059669);
+      case 'pendiente':
+        return const Color(0xFFD97706);
+      case 'rechazado':
+        return const Color(0xFFDC2626);
+      default:
+        return const Color(0xFF8B5CF6);
+    }
+  }
+
+  Future<void> _loadUpcomingEvents() async {
+    final baseUrl = AppEnv.webApiUrl;
+    if (baseUrl == null) {
+      if (mounted) setState(() => _upcomingEvents = []);
+      return;
+    }
+    try {
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      final dio = Dio(BaseOptions(baseUrl: baseUrl));
+      final res = await dio.get(
+        '/api/events/my-upcoming',
+        options: Options(
+          headers: token != null ? {'Authorization': 'Bearer $token'} : {},
+        ),
+      );
+      final list = (res.data as List?) ?? [];
+      final items = <_EventItem>[];
+      for (final raw in list) {
+        if (raw is! Map) continue;
+        final row = Map<String, dynamic>.from(raw);
+        final eventRaw = row['event'];
+        if (eventRaw is! Map) continue;
+        final event = Map<String, dynamic>.from(eventRaw);
+        final startsAt = DateTime.tryParse('${event['starts_at'] ?? ''}');
+        final local = startsAt?.toLocal();
+        final appStatus = '${row['application_status'] ?? ''}';
+        items.add(
+          _EventItem(
+            month: local != null ? _monthShort[local.month - 1] : '—',
+            day: local != null ? '${local.day}'.padLeft(2, '0') : '?',
+            title: '${event['title'] ?? 'Evento'}',
+            subtitle: event['location_label']?.toString().isNotEmpty == true
+                ? '${event['location_label']}'
+                : (row['business_name']?.toString() ?? 'Campus UTEQ'),
+            statusLabel: _statusLabel(appStatus),
+            color: _statusColor(appStatus),
+          ),
+        );
+      }
+      if (mounted) setState(() => _upcomingEvents = items);
+    } catch (_) {
+      if (mounted) setState(() => _upcomingEvents = []);
+    }
   }
 
   Future<void> _load() async {
@@ -83,6 +155,8 @@ class _ProfilePageState extends State<ProfilePage> {
       final incidents = await incidentsRepository.fetchIncidents();
       if (mounted) setState(() => _incidents = incidents);
     } catch (_) {}
+
+    await _loadUpcomingEvents();
 
     if (mounted) setState(() => _loading = false);
   }
@@ -165,9 +239,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 else
                   ...mine.take(6).map(_reportCard),
                 const SizedBox(height: 24),
-                _sectionHeader('Próximos eventos'),
+                _sectionHeader('Próximos eventos', action: 'Ver →', onAction: () {
+                  context.go('/app/events');
+                }),
                 const SizedBox(height: 12),
-                ..._events.map(_eventCard),
+                if (_upcomingEvents.isEmpty)
+                  _emptyEvents()
+                else
+                  ..._upcomingEvents.map(_eventCard),
                 const SizedBox(height: 28),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
@@ -500,10 +579,33 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _emptyEvents() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kBorder),
+      ),
+      child: const Column(
+        children: [
+          AnimatedAssetIcon(
+            assetPath: 'assets/markers/popper.png',
+            size: 36,
+            animate: false,
+            fallbackEmoji: '🎉',
+          ),
+          SizedBox(height: 8),
+          Text('Sin eventos próximos', style: TextStyle(color: _kMuted)),
+        ],
+      ),
+    );
+  }
+
   Widget _eventCard(_EventItem e) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [e.color.withValues(alpha: 0.08), Colors.white],
@@ -511,61 +613,89 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: e.color.withValues(alpha: 0.25)),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: e.color,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => context.go('/app/events'),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
               children: [
-                Text(
-                  e.month,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: e.color,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        e.month,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        e.day,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  e.day,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    height: 1,
+                const SizedBox(width: 12),
+                const AnimatedAssetIcon(
+                  assetPath: 'assets/markers/popper.png',
+                  size: 28,
+                  fallbackEmoji: '🎉',
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        e.title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: _kText,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        e.subtitle,
+                        style: const TextStyle(fontSize: 13, color: _kMuted),
+                      ),
+                      if (e.statusLabel.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          e.statusLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: e.color,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
+                const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
               ],
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  e.title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: _kText,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  e.subtitle,
-                  style: const TextStyle(fontSize: 13, color: _kMuted),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

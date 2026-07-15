@@ -12,11 +12,40 @@ import {
   type Profile,
   type VendorCategory,
 } from '@uteq/shared';
+import { EventPopperIcon } from '@/components/IncidentTypeGlyph';
 import { HButton } from '@/components/ui/HButton';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
 import { createClient } from '@/lib/supabase/client';
 
 const CATEGORIES = Object.keys(VENDOR_CATEGORY_LABELS) as VendorCategory[];
+
+function formatEventDate(iso: string | null | undefined): string {
+  if (!iso) return 'Fecha por confirmar';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'Fecha por confirmar';
+  return d.toLocaleDateString('es-MX', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function defaultEventDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  d.setHours(10, 0, 0, 0);
+  return d.toISOString();
+}
+
+function toDatetimeLocalValue(iso: string | null | undefined): string {
+  if (!iso) return toDatetimeLocalValue(defaultEventDate());
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 async function authHeaders(): Promise<HeadersInit> {
   const supabase = createClient();
@@ -36,6 +65,7 @@ export function EventsPageContent() {
   const [detail, setDetail] = useState<{
     event: CampusEvent;
     applications: EventVendorApplication[];
+    my_application: EventVendorApplication | null;
   } | null>(null);
   const [filter, setFilter] = useState<'todos' | VendorCategory>('todos');
   const [showCreate, setShowCreate] = useState(false);
@@ -49,6 +79,7 @@ export function EventsPageContent() {
     lng: -100.4045,
     location_label: '',
     max_vendors: 20,
+    starts_at: defaultEventDate(),
   });
 
   const [applyForm, setApplyForm] = useState<CreateVendorApplicationInput>({
@@ -60,27 +91,49 @@ export function EventsPageContent() {
 
   const isAdmin = profile?.role === 'admin_general';
 
-  const loadEvents = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadEvents = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const res = await fetch('/api/events', { cache: 'no-store' });
+      const res = await fetch('/api/events', { cache: 'no-store', credentials: 'include' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error');
       setEvents(data as CampusEvent[]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudieron cargar eventos');
+      if (!silent) {
+        setError(e instanceof Error ? e.message : 'No se pudieron cargar eventos');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  const loadDetail = useCallback(async (id: string) => {
-    const res = await fetch(`/api/events/${id}`, { cache: 'no-store' });
+  const loadDetail = useCallback(async (id: string, _opts?: { silent?: boolean }) => {
+    const res = await fetch(`/api/events/${id}`, {
+      cache: 'no-store',
+      credentials: 'include',
+    });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? 'Error');
-    setDetail(data as { event: CampusEvent; applications: EventVendorApplication[] });
+    setDetail(
+      data as {
+        event: CampusEvent;
+        applications: EventVendorApplication[];
+        my_application: EventVendorApplication | null;
+      },
+    );
   }, []);
+
+  const refreshAll = useCallback(
+    async (eventId?: string | null) => {
+      await loadEvents();
+      if (eventId) await loadDetail(eventId);
+    },
+    [loadEvents, loadDetail],
+  );
 
   useEffect(() => {
     async function boot() {
@@ -100,6 +153,16 @@ export function EventsPageContent() {
     void loadDetail(selectedId).catch((e) => setError(e.message));
   }, [selectedId, loadDetail]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void loadEvents({ silent: true });
+      if (selectedId) {
+        void loadDetail(selectedId, { silent: true }).catch(() => {});
+      }
+    }, 20_000);
+    return () => window.clearInterval(timer);
+  }, [loadEvents, loadDetail, selectedId]);
+
   const vendorsVisible = useMemo(() => {
     const apps = detail?.applications ?? [];
     const accepted = apps.filter((a) => a.status === 'aceptado');
@@ -115,12 +178,22 @@ export function EventsPageContent() {
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: await authHeaders(),
+        credentials: 'include',
         body: JSON.stringify(createForm),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error al crear');
       setShowCreate(false);
-      await loadEvents();
+      setCreateForm({
+        title: '',
+        description: '',
+        lat: 20.6534,
+        lng: -100.4045,
+        location_label: '',
+        max_vendors: 20,
+        starts_at: defaultEventDate(),
+      });
+      await refreshAll(data.id);
       setSelectedId(data.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error');
@@ -138,12 +211,19 @@ export function EventsPageContent() {
       const res = await fetch(`/api/events/${selectedId}`, {
         method: 'POST',
         headers: await authHeaders(),
+        credentials: 'include',
         body: JSON.stringify(applyForm),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error al postular');
       setShowApply(false);
-      await loadDetail(selectedId);
+      setApplyForm({
+        business_name: '',
+        group_name: '',
+        what_they_sell: '',
+        category: 'comida',
+      });
+      await refreshAll(selectedId);
       void data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error');
@@ -159,11 +239,12 @@ export function EventsPageContent() {
       const res = await fetch(`/api/events/${selectedId}/applications/${appId}`, {
         method: 'PATCH',
         headers: await authHeaders(),
+        credentials: 'include',
         body: JSON.stringify({ status }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error');
-      await loadDetail(selectedId);
+      await refreshAll(selectedId);
       void data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error');
@@ -180,18 +261,23 @@ export function EventsPageContent() {
       const res = await fetch(`/api/events/${selectedId}`, {
         method: 'PATCH',
         headers: await authHeaders(),
+        credentials: 'include',
         body: JSON.stringify({ status: next }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error');
-      await loadEvents();
-      await loadDetail(selectedId);
+      await refreshAll(selectedId);
+      void data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error');
     } finally {
       setBusy(false);
     }
   }
+
+  const myApplication = detail?.my_application ?? null;
+  const canApply =
+    detail?.event.status === 'abierto' && !myApplication && !isAdmin;
 
   return (
     <div className="web-app events-app">
@@ -223,15 +309,18 @@ export function EventsPageContent() {
                   className={`events-item${selectedId === ev.id ? ' active' : ''}`}
                   onClick={() => setSelectedId(ev.id)}
                 >
-                  <strong>{ev.title}</strong>
+                  <strong className="events-item-title">
+                    <EventPopperIcon size={22} />
+                    {ev.title}
+                  </strong>
                   <span
                     className={`events-status ${ev.status === 'abierto' ? 'open' : 'closed'}`}
                   >
                     · {ev.status === 'abierto' ? 'Abierto' : 'Cerrado'}
                   </span>
                   <small>
-                    {ev.location_label || 'Campus UTEQ'} · {ev.accepted_count ?? 0}/
-                    {ev.max_vendors} puestos
+                    📅 {formatEventDate(ev.starts_at)} · {ev.location_label || 'Campus UTEQ'} ·{' '}
+                    {ev.accepted_count ?? 0}/{ev.max_vendors} puestos
                   </small>
                 </button>
               </li>
@@ -251,12 +340,23 @@ export function EventsPageContent() {
                   <h2>{detail.event.title}</h2>
                   <p>{detail.event.description || 'Sin descripción'}</p>
                   <p className="events-meta">
+                    📅 {formatEventDate(detail.event.starts_at)}
+                    {' · '}
                     📍 {detail.event.location_label || `${detail.event.lat}, ${detail.event.lng}`}
                     {' · '}
                     <span className={detail.event.status === 'abierto' ? 'open' : 'closed'}>
                       {detail.event.status === 'abierto' ? 'Abierto' : 'Cerrado'}
                     </span>
                   </p>
+                  {myApplication && (
+                    <p className="events-my-app">
+                      {myApplication.status === 'aceptado'
+                        ? '✅ Tu solicitud fue aceptada'
+                        : myApplication.status === 'pendiente'
+                          ? '⏳ Solicitud en revisión'
+                          : '❌ Solicitud rechazada'}
+                    </p>
+                  )}
                 </div>
                 <div className="events-detail-actions">
                   {isAdmin && (
@@ -264,7 +364,7 @@ export function EventsPageContent() {
                       {detail.event.status === 'abierto' ? 'Cerrar evento' : 'Abrir evento'}
                     </HButton>
                   )}
-                  {detail.event.status === 'abierto' && (
+                  {canApply && (
                     <HButton onClick={() => setShowApply(true)} disabled={busy}>
                       Quiero participar
                     </HButton>
@@ -356,6 +456,23 @@ export function EventsPageContent() {
               <textarea
                 value={createForm.description}
                 onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+              />
+            </label>
+            <label>
+              Fecha y hora del evento
+              <input
+                type="datetime-local"
+                required
+                value={toDatetimeLocalValue(createForm.starts_at)}
+                onChange={(e) => {
+                  const local = new Date(e.target.value);
+                  setCreateForm({
+                    ...createForm,
+                    starts_at: Number.isNaN(local.getTime())
+                      ? defaultEventDate()
+                      : local.toISOString(),
+                  });
+                }}
               />
             </label>
             <label>

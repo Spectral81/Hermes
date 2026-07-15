@@ -32,3 +32,9 @@ flutter:
   assets:
     - .env
     - assets/markers/spy.png
+    - assets/markers/slip.png
+    - assets/markers/hammer.png
+    - assets/markers/sos.png
+    - assets/markers/popper.png
+    - assets/markers/kermes.png
+    - assets/markers/kermes-map.png
