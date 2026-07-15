@@ -603,6 +603,62 @@ body {
   justify-content: center;
 }
 
+.map-spy-float {
+  display: inline-flex;
+  animation: spy-float 3.8s ease-in-out infinite;
+}
+
+.map-spy-icon,
+.spy-robo-icon {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+  animation: spy-sway 6.5s ease-in-out infinite;
+  transform-origin: 50% 70%;
+  user-select: none;
+  pointer-events: none;
+}
+
+.map-emoji-wrap-spy .map-emoji-pin {
+  overflow: visible;
+}
+
+@keyframes spy-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes spy-sway {
+  0%,
+  40%,
+  100% {
+    transform: rotate(0deg);
+  }
+  48% {
+    transform: rotate(-2.4deg);
+  }
+  58% {
+    transform: rotate(1.6deg);
+  }
+  68% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-spy-float,
+  .map-spy-icon,
+  .spy-robo-icon {
+    animation: none;
+  }
+}
+
 .map-emoji-glyph {
   font-size: 22px;
   line-height: 1;

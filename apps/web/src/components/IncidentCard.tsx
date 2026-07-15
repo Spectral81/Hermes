@@ -9,6 +9,7 @@ import {
   timeAgo,
   type Incident,
 } from '@uteq/shared';
+import { IncidentTypeGlyph } from '@/components/IncidentTypeGlyph';
 import { HAvatar } from '@/components/ui/HAvatar';
 import { CloseIcon } from '@/components/ui/icons';
 import { toggleLike } from '@/lib/incidents';
@@ -63,7 +64,7 @@ export function IncidentCard({ incident, onClose, onLikeChange, variant = 'overl
 
       <div className="incident-card-header">
         <span className="incident-card-glyph" style={{ backgroundColor: meta.bg }}>
-          {meta.glyph}
+          <IncidentTypeGlyph type={incident.type} size={28} />
         </span>
         <div>
           <h3>

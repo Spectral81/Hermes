@@ -11,6 +11,7 @@ import {
   type InfraCategory,
   type Severity,
 } from '@uteq/shared';
+import { IncidentTypeGlyph } from '@/components/IncidentTypeGlyph';
 import { HButton } from '@/components/ui/HButton';
 import { CloseIcon, MapPinIcon } from '@/components/ui/icons';
 import { createIncident } from '@/lib/incidents';
@@ -126,8 +127,14 @@ export function ReportSheet({ open, coords, initialType, onClose, onCreated }: P
                     setSeverity(null);
                   }}
                 >
-                  <span className="report-type-glyph" style={{ backgroundColor: meta.color }}>
-                    {meta.glyph}
+                  <span
+                    className="report-type-glyph"
+                    style={{
+                      backgroundColor: opt === 'robo' ? '#fff' : meta.color,
+                      border: opt === 'robo' ? `1.5px solid ${meta.color}` : undefined,
+                    }}
+                  >
+                    <IncidentTypeGlyph type={opt} size={26} />
                   </span>
                   <span style={{ color: active ? meta.color : undefined }}>
                     {opt === 'panico' ? 'SOS' : INCIDENT_LABELS[opt]}

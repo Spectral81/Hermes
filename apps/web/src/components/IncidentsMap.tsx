@@ -10,6 +10,7 @@ import {
 import type { Profile } from '@uteq/shared';
 import { AppToast, type ToastMessage } from '@/components/AppToast';
 import { IncidentCard } from '@/components/IncidentCard';
+import { IncidentTypeGlyph } from '@/components/IncidentTypeGlyph';
 import { ProfileDrawer } from '@/components/ProfileDrawer';
 import { ReportSheet } from '@/components/ReportSheet';
 import { HButton } from '@/components/ui/HButton';
@@ -67,10 +68,14 @@ function markerIcon(L: any, type: Incident['type'], likes: number) {
     likes > 0
       ? `<span class="map-pin-badge">${likes > 99 ? '99+' : likes}</span>`
       : '';
+  const glyph =
+    type === 'robo'
+      ? `<span class="map-spy-float"><img class="map-spy-icon" src="/markers/spy.png" alt="Robo" width="32" height="32" draggable="false" /></span>`
+      : `<span class="map-emoji-glyph">${cat.glyph}</span>`;
   const html = `
-    <div class="map-emoji-wrap">
+    <div class="map-emoji-wrap${type === 'robo' ? ' map-emoji-wrap-spy' : ''}">
       <div class="map-emoji-pin" style="border-color:${cat.color}">
-        <span class="map-emoji-glyph">${cat.glyph}</span>
+        ${glyph}
       </div>
       ${badge}
     </div>`;
@@ -361,7 +366,7 @@ export function IncidentsMap() {
                         className="web-alert-glyph"
                         style={{ backgroundColor: meta.bg }}
                       >
-                        {meta.glyph}
+                        <IncidentTypeGlyph type={inc.type} size={26} />
                       </span>
                       <span className="web-alert-body">
                         <strong>{INCIDENT_LABELS[inc.type]}</strong>

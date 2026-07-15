@@ -6,6 +6,7 @@ import '../../../core/di/repositories.dart';
 import '../../../domain/constants.dart';
 import '../../../domain/helpers.dart';
 import '../../../domain/models.dart';
+import 'spy_robo_icon.dart';
 
 class AlertsPage extends StatefulWidget {
   const AlertsPage({super.key});
@@ -325,7 +326,10 @@ class _AlertsPageState extends State<AlertsPage> {
                               color: color.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Icon(incidentIcons[i.type], color: color, size: 20),
+                            alignment: Alignment.center,
+                            child: i.type == IncidentType.robo
+                                ? const SpyRoboIcon(size: 28, animate: false)
+                                : Icon(incidentIcons[i.type], color: color, size: 20),
                           ),
                           const SizedBox(width: 10),
                           Expanded(

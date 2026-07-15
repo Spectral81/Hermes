@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/constants.dart';
 import '../../../domain/models.dart';
+import 'spy_robo_icon.dart';
 
 class ReportSheet extends StatefulWidget {
   const ReportSheet({
@@ -236,10 +237,18 @@ class _ReportSheetState extends State<ReportSheet> {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: meta.color,
+                color: meta.type == IncidentType.robo
+                    ? Colors.white
+                    : meta.color,
                 borderRadius: BorderRadius.circular(10),
+                border: meta.type == IncidentType.robo
+                    ? Border.all(color: meta.color, width: 1.5)
+                    : null,
               ),
-              child: Icon(meta.icon, color: Colors.white, size: 20),
+              alignment: Alignment.center,
+              child: meta.type == IncidentType.robo
+                  ? const SpyRoboIcon(size: 26)
+                  : Icon(meta.icon, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
             Expanded(
