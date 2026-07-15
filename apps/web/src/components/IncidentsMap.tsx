@@ -217,13 +217,21 @@ export function IncidentsMap() {
         }
 
         const map = L.map(mapEl.current).setView([location.lat, location.lng], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap',
+        // OSM .org bloquea o falla a menudo en producción; CartoCDN es estable.
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 20,
+          subdomains: 'abcd',
+          attribution: '© OpenStreetMap © CARTO',
         }).addTo(map);
 
         mapRef.current = map;
         layerRef.current = L.layerGroup().addTo(map);
+
+        // Recalcular tamaño tras layout (evita tiles grises en contenedores flex).
+        requestAnimationFrame(() => {
+          map.invalidateSize();
+        });
+        window.setTimeout(() => map.invalidateSize(), 250);
 
         userMarkerRef.current = L.circleMarker([location.lat, location.lng], {
           radius: 9,
