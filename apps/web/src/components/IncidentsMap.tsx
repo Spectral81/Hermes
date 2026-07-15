@@ -18,8 +18,9 @@ import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
 import { filterNearbyRecentIncidents, formatDistance } from '@/lib/geo';
 import {
+  getGeolocationPermission,
   readStoredUserLocation,
-  requestUserLocation,
+  requestUserLocationReliable,
   saveUserLocation,
 } from '@/lib/geolocation';
 import { fetchIncidents } from '@/lib/incidents';
@@ -29,6 +30,13 @@ import { CATEGORY } from '@/lib/theme';
 const UTEQ_CENTER: [number, number] = [20.6534, -100.4045];
 const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+
+function isCampusFallback(location: { lat: number; lng: number }): boolean {
+  return (
+    Math.abs(location.lat - UTEQ_CENTER[0]) < 0.0001 &&
+    Math.abs(location.lng - UTEQ_CENTER[1]) < 0.0001
+  );
+}
 
 interface IncidentWithDistance extends Incident {
   distanceM: number;
@@ -87,17 +95,11 @@ function markerIcon(L: any, type: Incident['type'], likes: number) {
   });
 }
 
-async function resolveLocation(): Promise<{ lat: number; lng: number }> {
+/** Ubicación rápida para pintar el mapa (caché o campus). El GPS se pide aparte. */
+function initialMapLocation(): { lat: number; lng: number; fromCache: boolean } {
   const stored = readStoredUserLocation();
-  if (stored) return stored;
-
-  const live = await requestUserLocation();
-  if (live) {
-    saveUserLocation(live);
-    return live;
-  }
-
-  return { lat: UTEQ_CENTER[0], lng: UTEQ_CENTER[1] };
+  if (stored) return { ...stored, fromCache: true };
+  return { lat: UTEQ_CENTER[0], lng: UTEQ_CENTER[1], fromCache: false };
 }
 
 export function IncidentsMap() {
@@ -114,10 +116,13 @@ export function IncidentsMap() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState<string | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'pending' | 'ready' | 'denied'>('pending');
+  const [locationStatus, setLocationStatus] = useState<'locating' | 'pending' | 'ready' | 'denied'>(
+    'locating',
+  );
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [locating, setLocating] = useState(false);
 
   const sortedAlerts = useMemo((): IncidentWithDistance[] => {
     return filterNearbyRecentIncidents(incidents, coords);
@@ -188,13 +193,36 @@ export function IncidentsMap() {
     }
   }, []);
 
-  async function handleAllowLocation() {
-    const location = await requestUserLocation();
-    if (location) {
-      applyUserLocation(location);
-      return;
+  const locateMe = useCallback(async (showPromptOnFail = true) => {
+    setLocating(true);
+    setLocationStatus((prev) => (prev === 'ready' ? prev : 'locating'));
+    try {
+      const permission = await getGeolocationPermission();
+      if (permission === 'denied') {
+        setLocationStatus('denied');
+        return null;
+      }
+
+      const location = await requestUserLocationReliable();
+      if (location) {
+        applyUserLocation(location);
+        return location;
+      }
+
+      if (showPromptOnFail) {
+        setLocationStatus(permission === 'prompt' ? 'pending' : 'denied');
+      } else if (isCampusFallback(coords ?? { lat: UTEQ_CENTER[0], lng: UTEQ_CENTER[1] })) {
+        setLocationStatus('pending');
+      }
+      return null;
+    } finally {
+      setLocating(false);
     }
-    setLocationStatus('denied');
+  }, [applyUserLocation, coords]);
+
+  async function handleAllowLocation() {
+    const location = await locateMe(true);
+    if (!location) return;
   }
 
   useEffect(() => {
@@ -206,17 +234,14 @@ export function IncidentsMap() {
         if (cancelled || !mapEl.current || mapRef.current) return;
         LRef.current = L;
 
-        const location = await resolveLocation();
+        // Pintar rápido con caché/campus; luego pedir GPS real.
+        const bootstrap = initialMapLocation();
         if (!cancelled) {
-          setCoords(location);
-          const usedStored = Boolean(readStoredUserLocation());
-          const isCampus =
-            Math.abs(location.lat - UTEQ_CENTER[0]) < 0.0001 &&
-            Math.abs(location.lng - UTEQ_CENTER[1]) < 0.0001;
-          setLocationStatus(usedStored || !isCampus ? 'ready' : 'pending');
+          setCoords({ lat: bootstrap.lat, lng: bootstrap.lng });
+          setLocationStatus(bootstrap.fromCache ? 'ready' : 'locating');
         }
 
-        const map = L.map(mapEl.current).setView([location.lat, location.lng], 16);
+        const map = L.map(mapEl.current).setView([bootstrap.lat, bootstrap.lng], 16);
         // OSM .org bloquea o falla a menudo en producción; CartoCDN es estable.
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
           maxZoom: 20,
@@ -233,7 +258,7 @@ export function IncidentsMap() {
         });
         window.setTimeout(() => map.invalidateSize(), 250);
 
-        userMarkerRef.current = L.circleMarker([location.lat, location.lng], {
+        userMarkerRef.current = L.circleMarker([bootstrap.lat, bootstrap.lng], {
           radius: 9,
           color: '#3B82F6',
           fillColor: '#3B82F6',
@@ -244,6 +269,22 @@ export function IncidentsMap() {
         map.on('click', () => setSelected(null));
 
         await loadIncidents();
+
+        if (cancelled) return;
+
+        // Siempre refrescar GPS al abrir (no confiar solo en sessionStorage).
+        const live = await requestUserLocationReliable();
+        if (cancelled) return;
+        if (live) {
+          applyUserLocation(live);
+        } else {
+          const permission = await getGeolocationPermission();
+          if (permission === 'denied') {
+            setLocationStatus('denied');
+          } else if (!bootstrap.fromCache || isCampusFallback(bootstrap)) {
+            setLocationStatus('pending');
+          }
+        }
       } catch (e) {
         if (!cancelled) {
           setStatus('error');
@@ -258,9 +299,10 @@ export function IncidentsMap() {
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+        userMarkerRef.current = null;
       }
     };
-  }, [loadIncidents]);
+  }, [loadIncidents, applyUserLocation]);
 
   function handleLikeChange(
     id: string,
@@ -441,18 +483,36 @@ export function IncidentsMap() {
             <div className="web-map-overlay web-map-overlay-error">{errorMsg}</div>
           )}
 
+          {locationStatus === 'locating' && status !== 'loading' && (
+            <div className="web-map-location-hint">Obteniendo tu ubicación…</div>
+          )}
+
           {locationStatus === 'pending' && status !== 'loading' && (
             <div className="web-map-location-prompt">
               <p>Permite el acceso a tu ubicación para centrar el mapa y ordenar alertas cercanas.</p>
-              <HButton onClick={handleAllowLocation}>Permitir mi ubicación</HButton>
+              <HButton onClick={handleAllowLocation} disabled={locating}>
+                {locating ? 'Buscando…' : 'Permitir mi ubicación'}
+              </HButton>
             </div>
           )}
 
           {locationStatus === 'denied' && (
             <div className="web-map-location-hint">
-              Ubicación no disponible. Mostrando campus UTEQ.
+              Ubicación bloqueada en el navegador. Actívala en el candado de la barra de dirección o
+              pulsa el botón ◎.
             </div>
           )}
+
+          <button
+            type="button"
+            className="web-locate-fab"
+            onClick={() => void locateMe(true)}
+            disabled={locating}
+            aria-label="Centrar en mi ubicación"
+            title="Mi ubicación"
+          >
+            {locating ? '…' : '◎'}
+          </button>
 
           <button
             type="button"

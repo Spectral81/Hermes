@@ -8,7 +8,7 @@ import { HButton } from '@/components/ui/HButton';
 import { HInput } from '@/components/ui/HInput';
 import { EyeIcon, LockIcon, MailIcon } from '@/components/ui/icons';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
-import { requestUserLocation, saveUserLocation } from '@/lib/geolocation';
+import { requestUserLocationReliable, saveUserLocation } from '@/lib/geolocation';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,7 +47,7 @@ export default function LoginPage() {
         return;
       }
 
-      const location = await requestUserLocation();
+      const location = await requestUserLocationReliable();
       if (location) saveUserLocation(location);
 
       router.push(result.redirectTo ?? '/mapa');
