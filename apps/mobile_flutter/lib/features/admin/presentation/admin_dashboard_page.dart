@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -20,11 +22,37 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
   String? _error;
   IncidentStatus? _statusFilter;
   IncidentType? _typeFilter;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _pollTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      if (!mounted || _loading) return;
+      _loadSilent();
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadSilent() async {
+    try {
+      final role = await profileRepository.fetchMyRole();
+      final all = await incidentsRepository.fetchIncidentsForAdmin();
+      final allowed = incidentTypesForRole(role).toSet();
+      final mine = all.where((i) => allowed.contains(i.type)).toList();
+      if (!mounted) return;
+      setState(() {
+        _role = role;
+        _incidents = mine;
+        _error = null;
+      });
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -94,6 +122,12 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           onPressed: () => context.go('/app/profile'),
         ),
         actions: [
+          if (isAdmin)
+            IconButton(
+              tooltip: 'Gestionar eventos',
+              onPressed: () => context.go('/app/events'),
+              icon: const Icon(Icons.celebration_outlined),
+            ),
           IconButton(
             tooltip: 'Ver mapa',
             onPressed: () => context.go('/app/home'),
@@ -117,6 +151,17 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     padding: const EdgeInsets.all(16),
                     children: [
                       _RoleHeader(role: _role),
+                      if (isAdmin) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () => context.go('/app/events'),
+                            icon: const Icon(Icons.celebration_outlined),
+                            label: const Text('Gestionar eventos'),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       _statsRow(),
                       const SizedBox(height: 16),

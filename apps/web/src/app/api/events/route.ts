@@ -69,7 +69,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
     }
     if (!body.starts_at?.trim()) {
-      return NextResponse.json({ error: 'Indica la fecha del evento' }, { status: 400 });
+      return NextResponse.json({ error: 'Indica la fecha de inicio' }, { status: 400 });
+    }
+    if (!body.ends_at?.trim()) {
+      return NextResponse.json({ error: 'Indica la fecha de fin' }, { status: 400 });
+    }
+    const startsMs = new Date(body.starts_at).getTime();
+    const endsMs = new Date(body.ends_at).getTime();
+    if (Number.isNaN(startsMs) || Number.isNaN(endsMs)) {
+      return NextResponse.json({ error: 'Fechas inválidas' }, { status: 400 });
+    }
+    if (endsMs <= startsMs) {
+      return NextResponse.json(
+        { error: 'La fecha de fin debe ser posterior al inicio' },
+        { status: 400 },
+      );
     }
 
     const admin = createAdminClient();
@@ -82,8 +96,8 @@ export async function POST(request: Request) {
         lng: body.lng,
         location_label: body.location_label?.trim() ?? '',
         max_vendors: body.max_vendors,
-        starts_at: body.starts_at ?? null,
-        ends_at: body.ends_at ?? null,
+        starts_at: body.starts_at,
+        ends_at: body.ends_at,
         created_by: user.id,
         status: 'abierto',
       })

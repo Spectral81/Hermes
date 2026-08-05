@@ -111,6 +111,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       );
       final list = (res.data as List?) ?? [];
+      final now = DateTime.now();
       final items = <_EventItem>[];
       for (final raw in list) {
         if (raw is! Map) continue;
@@ -118,8 +119,24 @@ class _ProfilePageState extends State<ProfilePage> {
         final eventRaw = row['event'];
         if (eventRaw is! Map) continue;
         final event = Map<String, dynamic>.from(eventRaw);
-        final startsAt = DateTime.tryParse('${event['starts_at'] ?? ''}');
-        final local = startsAt?.toLocal();
+        final endsAt = DateTime.tryParse('${event['ends_at'] ?? ''}')?.toLocal();
+        final startsAt = DateTime.tryParse('${event['starts_at'] ?? ''}')?.toLocal();
+        if (endsAt != null) {
+          final endDay = DateTime(endsAt.year, endsAt.month, endsAt.day, 23, 59, 59, 999);
+          if (endDay.isBefore(now)) continue;
+        } else if (startsAt != null) {
+          final endOfDay = DateTime(
+            startsAt.year,
+            startsAt.month,
+            startsAt.day,
+            23,
+            59,
+            59,
+            999,
+          );
+          if (endOfDay.isBefore(now)) continue;
+        }
+        final local = startsAt;
         final appStatus = '${row['application_status'] ?? ''}';
         items.add(
           _EventItem(
@@ -230,15 +247,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ],
                 const SizedBox(height: 24),
-                _sectionHeader('Mis reportes', action: 'Ver todos →', onAction: () {
-                  context.go('/app/alerts');
-                }),
-                const SizedBox(height: 12),
-                if (mine.isEmpty)
-                  _emptyReports()
-                else
-                  ...mine.take(6).map(_reportCard),
-                const SizedBox(height: 24),
                 _sectionHeader('Próximos eventos', action: 'Ver →', onAction: () {
                   context.go('/app/events');
                 }),
@@ -247,6 +255,15 @@ class _ProfilePageState extends State<ProfilePage> {
                   _emptyEvents()
                 else
                   ..._upcomingEvents.map(_eventCard),
+                const SizedBox(height: 24),
+                _sectionHeader('Mis reportes', action: 'Ver todos →', onAction: () {
+                  context.go('/app/alerts');
+                }),
+                const SizedBox(height: 12),
+                if (mine.isEmpty)
+                  _emptyReports()
+                else
+                  ...mine.take(3).map(_reportCard),
                 const SizedBox(height: 28),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
@@ -467,20 +484,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _reportCard(Incident i) {
     final color = incidentColors[i.type] ?? _kBlue;
+    final bg = incidentBackgrounds[i.type] ?? Colors.white;
+    final border = incidentBorderColors[i.type] ?? _kBorder;
     final title = incidentLabels[i.type] ?? 'Reporte';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: bg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _kBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: border, width: 1.5),
       ),
       clipBehavior: Clip.antiAlias,
       child: IntrinsicHeight(
@@ -495,8 +507,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: Colors.white.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: border),
                 ),
                 child: Icon(_typeIcons[i.type], color: color, size: 22),
               ),
@@ -591,10 +604,10 @@ class _ProfilePageState extends State<ProfilePage> {
       child: const Column(
         children: [
           AnimatedAssetIcon(
-            assetPath: 'assets/markers/popper.png',
+            assetPath: 'assets/markers/kermes-icon.png',
             size: 36,
             animate: false,
-            fallbackEmoji: '🎉',
+            fallbackEmoji: '🎈',
           ),
           SizedBox(height: 8),
           Text('Sin eventos próximos', style: TextStyle(color: _kMuted)),
@@ -655,9 +668,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 const SizedBox(width: 12),
                 const AnimatedAssetIcon(
-                  assetPath: 'assets/markers/popper.png',
+                  assetPath: 'assets/markers/kermes-icon.png',
                   size: 28,
-                  fallbackEmoji: '🎉',
+                  fallbackEmoji: '🎈',
                 ),
                 const SizedBox(width: 10),
                 Expanded(

@@ -29,9 +29,25 @@ const Map<IncidentType, String> incidentEmoji = {
 /// Color de acento por tipo de incidente (borde del pin y tarjetas).
 const Map<IncidentType, Color> incidentColors = {
   IncidentType.robo: Color(0xFFEF4444),
-  IncidentType.accidente: Color(0xFFF97316),
-  IncidentType.infraestructura: Color(0xFFEAB308),
+  IncidentType.accidente: Color(0xFFEAB308),
+  IncidentType.infraestructura: Color(0xFF3B82F6),
   IncidentType.panico: Color(0xFFDC2626),
+};
+
+/// Fondos suaves por tipo (listas / panel de alertas).
+const Map<IncidentType, Color> incidentBackgrounds = {
+  IncidentType.robo: Color(0xFFFEF2F2),
+  IncidentType.accidente: Color(0xFFFEFCE8),
+  IncidentType.infraestructura: Color(0xFFEFF6FF),
+  IncidentType.panico: Color(0xFFFEE2E2),
+};
+
+/// Bordes suaves por tipo.
+const Map<IncidentType, Color> incidentBorderColors = {
+  IncidentType.robo: Color(0xFFFCA5A5),
+  IncidentType.accidente: Color(0xFFFDE047),
+  IncidentType.infraestructura: Color(0xFF93C5FD),
+  IncidentType.panico: Color(0xFFF87171),
 };
 
 /// Icono por tipo de incidente (tarjetas y listas).

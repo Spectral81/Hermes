@@ -11,26 +11,39 @@ import {
 import type { Profile } from '@uteq/shared';
 import { AppToast, type ToastMessage } from '@/components/AppToast';
 import { IncidentCard } from '@/components/IncidentCard';
-import { IncidentTypeGlyph } from '@/components/IncidentTypeGlyph';
+import { EventCalendarGlyph, EventKermesIcon, EventPinGlyph, IncidentTypeGlyph } from '@/components/IncidentTypeGlyph';
 import { ProfileDrawer } from '@/components/ProfileDrawer';
 import { ReportSheet } from '@/components/ReportSheet';
 import { HButton } from '@/components/ui/HButton';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
-import { filterNearbyRecentIncidents, formatDistance } from '@/lib/geo';
+import { filterNearbyRecentIncidents, formatDistance, isRecentIso } from '@/lib/geo';
 import {
   getGeolocationPermission,
   readStoredUserLocation,
   requestUserLocationReliable,
   saveUserLocation,
 } from '@/lib/geolocation';
+import { isCampusEventVisibleOnMap } from '@/lib/events';
 import { fetchIncidents } from '@/lib/incidents';
+import { loadLeaflet } from '@/lib/leaflet';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY } from '@/lib/theme';
 
 const UTEQ_CENTER: [number, number] = [20.6534, -100.4045];
-const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+
+function formatShortEventWhen(iso: string | null | undefined): string {
+  if (!iso) return 'Fecha por confirmar';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'Fecha por confirmar';
+  return d.toLocaleDateString('es-MX', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 function isCampusFallback(location: { lat: number; lng: number }): boolean {
   return (
@@ -41,34 +54,6 @@ function isCampusFallback(location: { lat: number; lng: number }): boolean {
 
 interface IncidentWithDistance extends Incident {
   distanceM: number;
-}
-
-function loadLeaflet(): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const w = window as any;
-    if (w.L) return resolve(w.L);
-
-    if (!document.querySelector(`link[href="${LEAFLET_CSS}"]`)) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = LEAFLET_CSS;
-      document.head.appendChild(link);
-    }
-
-    const existing = document.querySelector(`script[src="${LEAFLET_JS}"]`) as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener('load', () => resolve(w.L));
-      existing.addEventListener('error', reject);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = LEAFLET_JS;
-    script.async = true;
-    script.onload = () => resolve(w.L);
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
 }
 
 function markerIcon(L: any, type: Incident['type'], likes: number) {
@@ -83,9 +68,9 @@ function markerIcon(L: any, type: Incident['type'], likes: number) {
     infraestructura: '/markers/hammer.png',
     panico: '/markers/sos.png',
   };
-  const glyph = `<span class="map-spy-float"><img class="map-spy-icon" src="${srcByType[type]}" alt="${cat.label}" width="32" height="32" draggable="false" /></span>`;
+  const glyph = `<span class="map-spy-float"><img class="map-spy-icon" src="${srcByType[type]}" alt="${cat.label}" width="36" height="36" draggable="false" /></span>`;
   const html = `
-    <div class="map-emoji-wrap map-emoji-wrap-spy">
+    <div class="map-emoji-wrap map-emoji-wrap-spy map-emoji-wrap-incident">
       <div class="map-emoji-pin" style="border-color:${cat.color}">
         ${glyph}
       </div>
@@ -94,37 +79,26 @@ function markerIcon(L: any, type: Incident['type'], likes: number) {
   return L.divIcon({
     html,
     className: '',
-    iconSize: [52, 52],
-    iconAnchor: [26, 26],
+    iconSize: [60, 60],
+    iconAnchor: [30, 30],
   });
 }
 
 function eventMarkerIcon(L: any, title: string) {
   const html = `
-    <div class="map-emoji-wrap map-emoji-wrap-spy">
-      <div class="map-emoji-pin" style="border-color:#8B5CF6">
-        <span class="map-spy-float">
-          <img class="map-spy-icon" src="/markers/kermes-map.png" alt="${title.replace(/"/g, '')}" width="34" height="34" draggable="false" />
+    <div class="map-emoji-wrap map-emoji-wrap-spy map-emoji-wrap-event">
+      <div class="map-emoji-pin" style="border-color:#F59E0B">
+        <span class="event-balloon-float">
+          <img class="event-balloon-icon" src="/markers/kermes-icon.png" alt="${title.replace(/"/g, '')}" width="40" height="40" draggable="false" />
         </span>
       </div>
     </div>`;
   return L.divIcon({
     html,
     className: '',
-    iconSize: [56, 56],
-    iconAnchor: [28, 28],
+    iconSize: [64, 64],
+    iconAnchor: [32, 32],
   });
-}
-
-function isSameLocalDay(iso: string | null | undefined, ref = new Date()): boolean {
-  if (!iso) return false;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return false;
-  return (
-    d.getFullYear() === ref.getFullYear() &&
-    d.getMonth() === ref.getMonth() &&
-    d.getDate() === ref.getDate()
-  );
 }
 
 /** Ubicación rápida para pintar el mapa (caché o campus). El GPS se pide aparte. */
@@ -142,7 +116,7 @@ export function IncidentsMap() {
   const LRef = useRef<any>(null);
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [todayEvents, setTodayEvents] = useState<CampusEvent[]>([]);
+  const [mapEvents, setMapEvents] = useState<CampusEvent[]>([]);
   const [selected, setSelected] = useState<Incident | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -160,6 +134,13 @@ export function IncidentsMap() {
   const sortedAlerts = useMemo((): IncidentWithDistance[] => {
     return filterNearbyRecentIncidents(incidents, coords);
   }, [incidents, coords]);
+
+  /** Marcadores del mapa: todas las alertas recientes (no solo cercanas). */
+  const mapIncidents = useMemo(() => {
+    return incidents
+      .filter((i) => isRecentIso(i.created_at) && Number.isFinite(i.lat) && Number.isFinite(i.lng))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [incidents]);
 
   const renderMarkers = useCallback((L: any, list: Incident[], events: CampusEvent[]) => {
     const layer = layerRef.current;
@@ -197,15 +178,19 @@ export function IncidentsMap() {
     }
   }, []);
 
-  const loadTodayEvents = useCallback(async () => {
+  const loadMapEvents = useCallback(async () => {
     try {
       const res = await fetch('/api/events', { cache: 'no-store', credentials: 'include' });
       if (!res.ok) return;
       const data = (await res.json()) as CampusEvent[];
-      setTodayEvents(
-        (data ?? []).filter(
-          (e) => e.status === 'abierto' && isSameLocalDay(e.starts_at),
-        ),
+      setMapEvents(
+        (data ?? [])
+          .filter((e) => isCampusEventVisibleOnMap(e))
+          .sort((a, b) => {
+            const ta = a.starts_at ? new Date(a.starts_at).getTime() : Infinity;
+            const tb = b.starts_at ? new Date(b.starts_at).getTime() : Infinity;
+            return ta - tb;
+          }),
       );
     } catch {
       // no bloquear mapa
@@ -213,17 +198,17 @@ export function IncidentsMap() {
   }, []);
 
   useEffect(() => {
-    if (LRef.current) renderMarkers(LRef.current, sortedAlerts, todayEvents);
-  }, [sortedAlerts, todayEvents, renderMarkers]);
+    if (LRef.current) renderMarkers(LRef.current, mapIncidents, mapEvents);
+  }, [mapIncidents, mapEvents, renderMarkers]);
 
   useEffect(() => {
     if (status !== 'ready') return;
     const timer = window.setInterval(() => {
       void loadIncidents();
-      void loadTodayEvents();
-    }, 15000);
+      void loadMapEvents();
+    }, 10_000);
     return () => window.clearInterval(timer);
-  }, [status, loadIncidents, loadTodayEvents]);
+  }, [status, loadIncidents, loadMapEvents]);
 
   useEffect(() => {
     async function loadProfile() {
@@ -337,7 +322,7 @@ export function IncidentsMap() {
         map.on('click', () => setSelected(null));
 
         await loadIncidents();
-        await loadTodayEvents();
+        await loadMapEvents();
 
         if (cancelled) return;
 
@@ -371,7 +356,7 @@ export function IncidentsMap() {
         userMarkerRef.current = null;
       }
     };
-  }, [loadIncidents, loadTodayEvents, applyUserLocation]);
+  }, [loadIncidents, loadMapEvents, applyUserLocation]);
 
   function handleLikeChange(
     id: string,
@@ -449,9 +434,9 @@ export function IncidentsMap() {
           <aside className="web-sidebar web-alerts-panel">
             <div className="web-sidebar-head">
               <div>
-                <h2>Alertas cercanas</h2>
+                <h2>Cerca de ti</h2>
                 <p>
-                  {sortedAlerts.length} cercanas · más recientes · validación visible
+                  {mapEvents.length} eventos · {sortedAlerts.length} alertas
                 </p>
               </div>
               <button
@@ -464,57 +449,116 @@ export function IncidentsMap() {
               </button>
             </div>
 
-            <ul className="web-alerts-list">
-              {sortedAlerts.length === 0 && status === 'ready' && (
-                <li className="web-alerts-empty">No hay alertas cercanas (1.5 km)</li>
-              )}
-              {sortedAlerts.map((inc, idx) => {
-                const meta = CATEGORY[inc.type];
-                const active = selected?.id === inc.id;
-                const canValidate = inc.type === 'robo' || inc.type === 'accidente';
-                const validations = Math.min(inc.likes_count, INCIDENT_VALIDATION_TARGET);
-                return (
-                  <li key={inc.id}>
-                    <button
-                      type="button"
-                      className={`web-alert-item${active ? ' web-alert-item-active' : ''}`}
-                      onClick={() => focusIncident(inc)}
-                    >
-                      <span className="web-alert-rank">{idx + 1}</span>
-                      <span
-                        className="web-alert-glyph"
-                        style={{ backgroundColor: meta.bg }}
+            <div className="web-sidebar-scroll">
+              <section className="web-events-section" aria-label="Eventos próximos">
+                <div className="web-section-label">
+                  <EventKermesIcon size={22} />
+                  <span>Eventos próximos</span>
+                </div>
+                {mapEvents.length === 0 && status === 'ready' && (
+                  <p className="web-alerts-empty">No hay eventos próximos</p>
+                )}
+                <ul className="web-events-list">
+                  {mapEvents.map((ev) => (
+                    <li key={ev.id}>
+                      <button
+                        type="button"
+                        className="web-event-item"
+                        onClick={() => {
+                          if (mapRef.current && Number.isFinite(ev.lat) && Number.isFinite(ev.lng)) {
+                            mapRef.current.setView([ev.lat, ev.lng], 17);
+                          }
+                          setSelected(null);
+                        }}
                       >
-                        <IncidentTypeGlyph type={inc.type} size={26} />
-                      </span>
-                      <span className="web-alert-body">
-                        <strong>{INCIDENT_LABELS[inc.type]}</strong>
-                        <span>
-                          {inc.description
-                            ? inc.description.slice(0, 48) + (inc.description.length > 48 ? '…' : '')
-                            : 'Sin descripción'}
+                        <span className="web-event-glyph">
+                          <EventKermesIcon size={28} />
                         </span>
-                        <small>
-                          {formatDistance(inc.distanceM)} · {timeAgo(inc.created_at)}
-                          {canValidate
-                            ? ` · ${validations}/${INCIDENT_VALIDATION_TARGET} validaciones`
-                            : ''}
-                        </small>
-                      </span>
-                      {canValidate && (
-                        <span
-                          className={`web-alert-likes${
-                            validations >= INCIDENT_VALIDATION_TARGET ? ' web-alert-likes-ok' : ''
-                          }`}
+                        <span className="web-alert-body">
+                          <strong>{ev.title}</strong>
+                          <span className="web-event-meta-line">
+                            <EventPinGlyph size={15} />
+                            {ev.location_label || 'Campus UTEQ'}
+                          </span>
+                          <small className="web-event-meta-line">
+                            <EventCalendarGlyph size={15} />
+                            {formatShortEventWhen(ev.starts_at)}
+                            {ev.ends_at ? ` → ${formatShortEventWhen(ev.ends_at)}` : ''}
+                          </small>
+                        </span>
+                        <a
+                          className="web-event-link"
+                          href="/eventos"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {validations}/{INCIDENT_VALIDATION_TARGET}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                          Ver
+                        </a>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className="web-alerts-section" aria-label="Alertas cercanas">
+                <div className="web-section-label web-section-label-alerts">
+                  <span>Alertas cercanas</span>
+                </div>
+                <ul className="web-alerts-list">
+                  {sortedAlerts.length === 0 && status === 'ready' && (
+                    <li className="web-alerts-empty">No hay alertas cercanas (1.5 km)</li>
+                  )}
+                  {sortedAlerts.map((inc, idx) => {
+                    const meta = CATEGORY[inc.type];
+                    const active = selected?.id === inc.id;
+                    const canValidate = inc.type === 'robo' || inc.type === 'accidente';
+                    const validations = Math.min(inc.likes_count, INCIDENT_VALIDATION_TARGET);
+                    return (
+                      <li key={inc.id}>
+                        <button
+                          type="button"
+                          className={`web-alert-item web-alert-item-${inc.type}${active ? ' web-alert-item-active' : ''}`}
+                          onClick={() => focusIncident(inc)}
+                        >
+                          <span className="web-alert-rank">{idx + 1}</span>
+                          <span
+                            className="web-alert-glyph"
+                            style={{ backgroundColor: meta.bg }}
+                          >
+                            <IncidentTypeGlyph type={inc.type} size={26} />
+                          </span>
+                          <span className="web-alert-body">
+                            <strong>{INCIDENT_LABELS[inc.type]}</strong>
+                            <span>
+                              {inc.description
+                                ? inc.description.slice(0, 48) +
+                                  (inc.description.length > 48 ? '…' : '')
+                                : 'Sin descripción'}
+                            </span>
+                            <small>
+                              {formatDistance(inc.distanceM)} · {timeAgo(inc.created_at)}
+                              {canValidate
+                                ? ` · ${validations}/${INCIDENT_VALIDATION_TARGET} validaciones`
+                                : ''}
+                            </small>
+                          </span>
+                          {canValidate && (
+                            <span
+                              className={`web-alert-likes${
+                                validations >= INCIDENT_VALIDATION_TARGET
+                                  ? ' web-alert-likes-ok'
+                                  : ''
+                              }`}
+                            >
+                              {validations}/{INCIDENT_VALIDATION_TARGET}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            </div>
 
             {selected && (
               <div className="web-sidebar-detail">
@@ -607,8 +651,10 @@ export function IncidentsMap() {
         onCreated={(incident) => {
           setReportOpen(false);
           addIncidentToMap(incident);
-          loadIncidents();
-          void loadTodayEvents();
+          void (async () => {
+            await loadIncidents();
+            await loadMapEvents();
+          })();
         }}
       />
 

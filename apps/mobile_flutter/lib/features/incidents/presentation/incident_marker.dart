@@ -51,8 +51,8 @@ class _IncidentMarkerState extends State<IncidentMarker>
     final wire = incidentTypeToWire(widget.type);
 
     Widget circle = Container(
-      width: 44,
-      height: 44,
+      width: 50,
+      height: 50,
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
@@ -68,7 +68,7 @@ class _IncidentMarkerState extends State<IncidentMarker>
       alignment: Alignment.center,
       child: IncidentTypeIcon(
         type: wire,
-        size: widget.selected ? 30 : 26,
+        size: widget.selected ? 34 : 30,
       ),
     );
 

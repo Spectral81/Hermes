@@ -23,8 +23,7 @@ export async function GET(request: Request) {
     const { data: events } = await admin.from('campus_events').select('*').in('id', eventIds);
 
     const eventsById = new Map((events ?? []).map((e) => [e.id as string, e]));
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const now = new Date();
 
     const list = apps
       .map((app) => {
@@ -39,9 +38,15 @@ export async function GET(request: Request) {
       })
       .filter(Boolean)
       .filter((row) => {
+        const endsAt = row!.event.ends_at as string | null;
         const startsAt = row!.event.starts_at as string | null;
-        if (!startsAt) return true;
-        return new Date(startsAt).getTime() >= startOfToday.getTime();
+        const ref = endsAt || startsAt;
+        if (!ref) return true;
+        const d = new Date(ref);
+        if (Number.isNaN(d.getTime())) return true;
+        const endOfDay = new Date(d);
+        endOfDay.setHours(23, 59, 59, 999);
+        return endOfDay.getTime() >= now.getTime();
       })
       .sort((a, b) => {
         const ta = a!.event.starts_at ? new Date(a!.event.starts_at as string).getTime() : Infinity;

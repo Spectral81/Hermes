@@ -68,14 +68,19 @@ export function RoleDashboardContent() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      setError(null);
+    let cancelled = false;
+
+    async function load(opts?: { silent?: boolean }) {
+      const silent = opts?.silent === true;
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
       try {
         const { data: profileData, error: profileError } = await supabase.rpc('ensure_my_profile');
         if (profileError) throw profileError;
         const p = profileData as Profile | null;
-        setProfile(p);
+        if (!cancelled) setProfile(p);
         if (!p) throw new Error('No se pudo cargar el perfil.');
 
         const { data: adminRows, error: adminErr } = await supabase.rpc('list_incidents_admin');
@@ -92,15 +97,23 @@ export function RoleDashboardContent() {
           .filter((i) => allowed.has(i.type))
           .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
-        setIncidents(scoped);
+        if (!cancelled) setIncidents(scoped);
       } catch (e) {
-        const message = e instanceof Error ? e.message : 'No se pudo cargar el dashboard.';
-        setError(message);
+        if (!silent && !cancelled) {
+          const message = e instanceof Error ? e.message : 'No se pudo cargar el dashboard.';
+          setError(message);
+        }
       } finally {
-        setLoading(false);
+        if (!silent && !cancelled) setLoading(false);
       }
     }
-    load();
+
+    void load();
+    const timer = window.setInterval(() => void load({ silent: true }), 12_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [supabase]);
 
   const visible = useMemo(() => {
@@ -176,9 +189,16 @@ export function RoleDashboardContent() {
               <h1>Gestión de incidentes</h1>
               <p className="hermes-admin-sub">{ROLE_LABELS[role]}</p>
             </div>
-            <Link href="/mapa" className="hermes-admin-map-btn">
-              Ver mapa
-            </Link>
+            <div className="hermes-admin-hero-actions">
+              {role === 'admin_general' && (
+                <Link href="/eventos" className="hermes-admin-map-btn hermes-admin-events-btn">
+                  Gestionar eventos
+                </Link>
+              )}
+              <Link href="/mapa" className="hermes-admin-map-btn">
+                Ver mapa
+              </Link>
+            </div>
           </div>
         </header>
 

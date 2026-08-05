@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/env.dart';
@@ -43,7 +45,7 @@ class _EventsPageState extends State<EventsPage> {
   void initState() {
     super.initState();
     _boot();
-    _pollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!mounted || _silentRefreshing) return;
       _refreshAll(silent: true);
     });
@@ -95,6 +97,7 @@ class _EventsPageState extends State<EventsPage> {
       _events = (res.data as List)
           .cast<Map>()
           .map((e) => Map<String, dynamic>.from(e))
+          .where((e) => e['status'] == 'abierto' && !_isEventPast(e))
           .toList();
       _error = null;
     } catch (e) {
@@ -155,6 +158,49 @@ class _EventsPageState extends State<EventsPage> {
 
   String _formatPickedDate(DateTime d) =>
       '${d.day} ${_monthsShort[d.month - 1]} ${d.year}';
+
+  String _formatEventRange(Map<String, dynamic> e) {
+    final start = _formatStartsAt(e['starts_at']);
+    final endRaw = e['ends_at'];
+    if (endRaw == null || (endRaw is String && endRaw.trim().isEmpty)) return start;
+    return '$start → ${_formatStartsAt(endRaw)}';
+  }
+
+  Widget _metaRow(String asset, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Image.asset(
+          asset,
+          width: 16,
+          height: 16,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const SizedBox(width: 16, height: 16),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.25),
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _isEventPast(Map<String, dynamic> e) {
+    final now = DateTime.now();
+    DateTime? endOfDay(DateTime d) =>
+        DateTime(d.year, d.month, d.day, 23, 59, 59, 999);
+
+    final ends = DateTime.tryParse('${e['ends_at']}')?.toLocal();
+    if (ends != null) {
+      return endOfDay(ends)!.isBefore(now);
+    }
+    final starts = DateTime.tryParse('${e['starts_at']}')?.toLocal();
+    if (starts == null) return false;
+    return endOfDay(starts)!.isBefore(now);
+  }
 
   String _myAppBannerText(String status) {
     switch (status) {
@@ -361,8 +407,11 @@ class _EventsPageState extends State<EventsPage> {
     final desc = TextEditingController();
     final place = TextEditingController(text: 'Campus UTEQ');
     final cupo = TextEditingController(text: '20');
-    DateTime? pickedDate;
-    TimeOfDay? pickedTime;
+    DateTime? startDate;
+    TimeOfDay? startTime;
+    DateTime? endDate;
+    TimeOfDay? endTime;
+    var pin = const LatLng(_campusLat, _campusLng);
 
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -375,12 +424,55 @@ class _EventsPageState extends State<EventsPage> {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
             final bottom = MediaQuery.of(ctx).viewInsets.bottom;
-            final dateLabel = pickedDate == null
-                ? 'Elegir fecha'
-                : _formatPickedDate(pickedDate!);
-            final timeLabel = pickedTime == null
-                ? 'Elegir hora'
-                : pickedTime!.format(ctx);
+
+            Future<void> pickStart() async {
+              final now = DateTime.now();
+              final d = await showDatePicker(
+                context: ctx,
+                initialDate: startDate ?? now,
+                firstDate: DateTime(now.year, now.month, now.day),
+                lastDate: DateTime(now.year + 2),
+              );
+              if (d == null) return;
+              if (!ctx.mounted) return;
+              final t = await showTimePicker(
+                context: ctx,
+                initialTime: startTime ?? const TimeOfDay(hour: 10, minute: 0),
+              );
+              if (t == null) return;
+              setLocal(() {
+                startDate = d;
+                startTime = t;
+                endDate ??= d;
+                endTime ??= TimeOfDay(hour: (t.hour + 6) % 24, minute: t.minute);
+              });
+            }
+
+            Future<void> pickEnd() async {
+              final now = DateTime.now();
+              final d = await showDatePicker(
+                context: ctx,
+                initialDate: endDate ?? startDate ?? now,
+                firstDate: DateTime(now.year, now.month, now.day),
+                lastDate: DateTime(now.year + 2),
+              );
+              if (d == null) return;
+              if (!ctx.mounted) return;
+              final t = await showTimePicker(
+                context: ctx,
+                initialTime: endTime ?? const TimeOfDay(hour: 16, minute: 0),
+              );
+              if (t == null) return;
+              setLocal(() {
+                endDate = d;
+                endTime = t;
+              });
+            }
+
+            String rangeLabel(DateTime? d, TimeOfDay? t, String fallback) {
+              if (d == null || t == null) return fallback;
+              return '${_formatPickedDate(d)} · ${t.format(ctx)}';
+            }
 
             return Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
@@ -401,19 +493,19 @@ class _EventsPageState extends State<EventsPage> {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      '🎊 Nuevo evento',
+                      'Nuevo evento',
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Crea una kermés o feria en campus.',
+                      'Define fechas y coloca el pin donde se realizará.',
                       style: TextStyle(color: Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: title,
                       decoration: const InputDecoration(
-                        labelText: '📌 Título',
+                        labelText: 'Título',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -422,7 +514,7 @@ class _EventsPageState extends State<EventsPage> {
                       controller: desc,
                       maxLines: 3,
                       decoration: const InputDecoration(
-                        labelText: '📝 Descripción',
+                        labelText: 'Descripción',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -430,7 +522,7 @@ class _EventsPageState extends State<EventsPage> {
                     TextField(
                       controller: place,
                       decoration: const InputDecoration(
-                        labelText: '📍 Lugar',
+                        labelText: 'Lugar (etiqueta)',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -438,45 +530,96 @@ class _EventsPageState extends State<EventsPage> {
                     TextField(
                       controller: cupo,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: '🏪 Cupo de puestos',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: 'Cupo de puestos',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Image.asset(
+                            'assets/markers/event-store.png',
+                            width: 22,
+                            height: 22,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.storefront_outlined),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              final now = DateTime.now();
-                              final d = await showDatePicker(
-                                context: ctx,
-                                initialDate: pickedDate ?? now,
-                                firstDate: DateTime(now.year, now.month, now.day),
-                                lastDate: DateTime(now.year + 2),
-                              );
-                              if (d != null) setLocal(() => pickedDate = d);
-                            },
-                            icon: const Icon(Icons.calendar_today_outlined),
-                            label: Text('📅 $dateLabel'),
+                    OutlinedButton.icon(
+                      onPressed: pickStart,
+                      icon: Image.asset(
+                        'assets/markers/event-calendar.png',
+                        width: 20,
+                        height: 20,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.play_arrow_rounded),
+                      ),
+                      label: Text(rangeLabel(startDate, startTime, 'Fecha de inicio')),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: pickEnd,
+                      icon: Image.asset(
+                        'assets/markers/event-calendar.png',
+                        width: 20,
+                        height: 20,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.stop_rounded),
+                      ),
+                      label: Text(rangeLabel(endDate, endTime, 'Fecha de fin')),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Ubicación en el mapa',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: SizedBox(
+                        height: 200,
+                        child: FlutterMap(
+                          options: MapOptions(
+                            initialCenter: pin,
+                            initialZoom: 16,
+                            onTap: (_, p) => setLocal(() => pin = p),
                           ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                              subdomains: const ['a', 'b', 'c', 'd'],
+                              userAgentPackageName: 'mx.edu.uteq.hermes',
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: pin,
+                                  width: 48,
+                                  height: 48,
+                                  child: Image.asset(
+                                    'assets/markers/event-pin.png',
+                                    width: 42,
+                                    height: 42,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.place,
+                                      color: Color(0xFFEF4444),
+                                      size: 40,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              final t = await showTimePicker(
-                                context: ctx,
-                                initialTime: pickedTime ?? TimeOfDay.now(),
-                              );
-                              if (t != null) setLocal(() => pickedTime = t);
-                            },
-                            icon: const Icon(Icons.schedule),
-                            label: Text('🕐 $timeLabel'),
-                          ),
-                        ),
-                      ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Toca el mapa para colocar el pin del evento',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     ),
                     const SizedBox(height: 20),
                     Row(
@@ -486,20 +629,44 @@ class _EventsPageState extends State<EventsPage> {
                           child: const Text('Cancelar'),
                         ),
                         const Spacer(),
-                        FilledButton.icon(
+                        FilledButton(
                           onPressed: () {
-                            if (pickedDate == null || pickedTime == null) {
+                            if (startDate == null ||
+                                startTime == null ||
+                                endDate == null ||
+                                endTime == null) {
                               ScaffoldMessenger.of(ctx).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Elige fecha y hora del evento'),
+                                  content: Text('Elige fecha de inicio y fecha de fin'),
+                                ),
+                              );
+                              return;
+                            }
+                            final start = DateTime(
+                              startDate!.year,
+                              startDate!.month,
+                              startDate!.day,
+                              startTime!.hour,
+                              startTime!.minute,
+                            );
+                            final end = DateTime(
+                              endDate!.year,
+                              endDate!.month,
+                              endDate!.day,
+                              endTime!.hour,
+                              endTime!.minute,
+                            );
+                            if (!end.isAfter(start)) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(
+                                  content: Text('La fecha de fin debe ser posterior al inicio'),
                                 ),
                               );
                               return;
                             }
                             Navigator.pop(ctx, true);
                           },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Crear evento'),
+                          child: const Text('Crear evento'),
                         ),
                       ],
                     ),
@@ -512,18 +679,28 @@ class _EventsPageState extends State<EventsPage> {
       },
     );
 
-    if (ok != true || pickedDate == null || pickedTime == null) return;
+    if (ok != true ||
+        startDate == null ||
+        startTime == null ||
+        endDate == null ||
+        endTime == null) {
+      return;
+    }
 
-    final date = pickedDate!;
-    final time = pickedTime!;
-    final local = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
-    final startsAtIso = local.toUtc().toIso8601String();
+    final startsAt = DateTime(
+      startDate!.year,
+      startDate!.month,
+      startDate!.day,
+      startTime!.hour,
+      startTime!.minute,
+    ).toUtc().toIso8601String();
+    final endsAt = DateTime(
+      endDate!.year,
+      endDate!.month,
+      endDate!.day,
+      endTime!.hour,
+      endTime!.minute,
+    ).toUtc().toIso8601String();
 
     try {
       final res = await _dio.post(
@@ -532,10 +709,11 @@ class _EventsPageState extends State<EventsPage> {
           'title': title.text.trim(),
           'description': desc.text.trim(),
           'location_label': place.text.trim(),
-          'lat': _campusLat,
-          'lng': _campusLng,
+          'lat': pin.latitude,
+          'lng': pin.longitude,
           'max_vendors': int.tryParse(cupo.text) ?? 20,
-          'starts_at': startsAtIso,
+          'starts_at': startsAt,
+          'ends_at': endsAt,
         },
         options: Options(headers: _headers(), contentType: 'application/json'),
       );
@@ -578,7 +756,10 @@ class _EventsPageState extends State<EventsPage> {
             : null,
         actions: [
           if (_isAdmin && _detailEvent == null)
-            IconButton(onPressed: _createEvent, icon: const Icon(Icons.add)),
+            TextButton(
+              onPressed: _createEvent,
+              child: const Text('Crear evento'),
+            ),
           if (_detailEvent != null && _canShowParticipate)
             TextButton(onPressed: _apply, child: const Text('Participar')),
         ],
@@ -613,18 +794,33 @@ class _EventsPageState extends State<EventsPage> {
                                   margin: const EdgeInsets.only(bottom: 10),
                                   child: ListTile(
                                     leading: const AnimatedAssetIcon(
-                                      assetPath: 'assets/markers/popper.png',
+                                      assetPath: 'assets/markers/kermes-icon.png',
                                       size: 36,
-                                      fallbackEmoji: '🎉',
+                                      fallbackEmoji: '🎈',
                                     ),
                                     title: Text(
                                       '${e['title']}',
                                       style: const TextStyle(fontWeight: FontWeight.w700),
                                     ),
-                                    subtitle: Text(
-                                      '📅 ${_formatStartsAt(e['starts_at'])}\n'
-                                      '📍 ${e['location_label'] ?? 'Campus'} · '
-                                      '${e['accepted_count'] ?? 0}/${e['max_vendors']} puestos',
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const SizedBox(height: 4),
+                                        _metaRow(
+                                          'assets/markers/event-calendar.png',
+                                          _formatEventRange(e),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        _metaRow(
+                                          'assets/markers/event-pin.png',
+                                          '${e['location_label'] ?? 'Campus'}',
+                                        ),
+                                        const SizedBox(height: 2),
+                                        _metaRow(
+                                          'assets/markers/event-store.png',
+                                          '${e['accepted_count'] ?? 0}/${e['max_vendors']} puestos',
+                                        ),
+                                      ],
                                     ),
                                     isThreeLine: true,
                                     trailing: Text(
@@ -679,17 +875,14 @@ class _EventsPageState extends State<EventsPage> {
                             style: const TextStyle(color: Color(0xFF64748B)),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            '📅 ${_formatStartsAt(_detailEvent!['starts_at'])}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF334155),
-                            ),
+                          _metaRow(
+                            'assets/markers/event-calendar.png',
+                            _formatEventRange(_detailEvent!),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '📍 ${_detailEvent!['location_label'] ?? 'Campus'}',
-                            style: const TextStyle(color: Color(0xFF64748B)),
+                          _metaRow(
+                            'assets/markers/event-pin.png',
+                            '${_detailEvent!['location_label'] ?? 'Campus'}',
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -730,20 +923,19 @@ class _EventsPageState extends State<EventsPage> {
                           ),
                           const SizedBox(height: 12),
                           ...accepted.map((v) {
-                            final emoji = {
-                                  'comida': '🌮',
-                                  'snacks': '🥪',
-                                  'bebidas': '☕',
-                                  'postres': '🍓',
-                                  'otro': '🛍️',
-                                }[v['category']] ??
-                                '🛍️';
                             return Card(
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: const Color(0xFFF3E8FF),
-                                  child: Text(emoji,
-                                      style: const TextStyle(fontSize: 22)),
+                                  backgroundColor: const Color(0xFFFFF7ED),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(6),
+                                    child: Image.asset(
+                                      'assets/markers/event-store.png',
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Text('🛍️', style: TextStyle(fontSize: 22)),
+                                    ),
+                                  ),
                                 ),
                                 title: Text('${v['business_name']}'),
                                 subtitle: Text('${v['what_they_sell']}'),

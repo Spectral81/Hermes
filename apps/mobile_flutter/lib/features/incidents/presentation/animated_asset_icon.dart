@@ -31,35 +31,45 @@ class _AnimatedAssetIconState extends State<AnimatedAssetIcon>
     super.initState();
     _floatCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3800),
+      duration: Duration(
+        milliseconds: widget.assetPath.contains('kermes-icon') ? 2800 : 3800,
+      ),
     );
     _swayCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 6500),
+      duration: Duration(
+        milliseconds: widget.assetPath.contains('kermes-icon') ? 4200 : 6500,
+      ),
     );
-    _float = Tween<double>(begin: 0, end: -4).animate(
+    final isBalloon = widget.assetPath.contains('kermes-icon');
+    _float = Tween<double>(begin: 0, end: isBalloon ? -7 : -4).animate(
       CurvedAnimation(parent: _floatCtrl, curve: Curves.easeInOut),
     );
-    _sway = TweenSequence<double>([
-      TweenSequenceItem(tween: ConstantTween(0), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: -0.04), weight: 8),
-      TweenSequenceItem(tween: Tween(begin: -0.04, end: 0.028), weight: 10),
-      TweenSequenceItem(tween: Tween(begin: 0.028, end: 0.0), weight: 10),
-      TweenSequenceItem(tween: ConstantTween(0), weight: 32),
-    ]).animate(_swayCtrl);
+    _sway = isBalloon
+        ? Tween<double>(begin: -0.07, end: 0.09).animate(
+            CurvedAnimation(parent: _swayCtrl, curve: Curves.easeInOut),
+          )
+        : TweenSequence<double>([
+            TweenSequenceItem(tween: ConstantTween(0), weight: 40),
+            TweenSequenceItem(tween: Tween(begin: 0.0, end: -0.04), weight: 8),
+            TweenSequenceItem(tween: Tween(begin: -0.04, end: 0.028), weight: 10),
+            TweenSequenceItem(tween: Tween(begin: 0.028, end: 0.0), weight: 10),
+            TweenSequenceItem(tween: ConstantTween(0), weight: 32),
+          ]).animate(_swayCtrl);
 
     if (widget.animate) {
       _floatCtrl.repeat(reverse: true);
-      _swayCtrl.repeat();
+      _swayCtrl.repeat(reverse: isBalloon);
     }
   }
 
   @override
   void didUpdateWidget(covariant AnimatedAssetIcon oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final isBalloon = widget.assetPath.contains('kermes-icon');
     if (widget.animate && !oldWidget.animate) {
       _floatCtrl.repeat(reverse: true);
-      _swayCtrl.repeat();
+      _swayCtrl.repeat(reverse: isBalloon);
     } else if (!widget.animate && oldWidget.animate) {
       _floatCtrl
         ..stop()

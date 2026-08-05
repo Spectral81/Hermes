@@ -65,13 +65,60 @@ export function EventPopperIcon({ size = 36, className = '' }: { size?: number; 
 
 export function EventKermesIcon({ size = 36, className = '' }: { size?: number; className?: string }) {
   return (
+    <span className={`event-balloon-float ${className}`.trim()} style={{ width: size, height: size }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/markers/kermes-icon.png"
+        alt="Evento"
+        width={size}
+        height={size}
+        className="event-balloon-icon"
+        draggable={false}
+      />
+    </span>
+  );
+}
+
+/** Calendario ilustrado para fechas de eventos. */
+export function EventCalendarGlyph({ size = 18, className = '' }: { size?: number; className?: string }) {
+  return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/markers/kermes-map.png"
-      alt="Kermés"
+      src="/markers/event-calendar.png"
+      alt=""
       width={size}
       height={size}
-      className={`incident-anim-icon ${className}`.trim()}
+      className={`event-meta-glyph ${className}`.trim()}
+      draggable={false}
+    />
+  );
+}
+
+/** Pin de ubicación ilustrado para eventos. */
+export function EventPinGlyph({ size = 18, className = '' }: { size?: number; className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/markers/event-pin.png"
+      alt=""
+      width={size}
+      height={size}
+      className={`event-meta-glyph ${className}`.trim()}
+      draggable={false}
+    />
+  );
+}
+
+/** Negocio / puesto ilustrado. */
+export function EventStoreGlyph({ size = 18, className = '' }: { size?: number; className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/markers/event-store.png"
+      alt=""
+      width={size}
+      height={size}
+      className={`event-meta-glyph ${className}`.trim()}
       draggable={false}
     />
   );

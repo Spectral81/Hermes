@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  VENDOR_CATEGORY_EMOJI,
   VENDOR_CATEGORY_LABELS,
   type CampusEvent,
   type CreateCampusEventInput,
@@ -12,9 +11,16 @@ import {
   type Profile,
   type VendorCategory,
 } from '@uteq/shared';
-import { EventPopperIcon } from '@/components/IncidentTypeGlyph';
+import { EventMapPicker } from '@/components/EventMapPicker';
+import {
+  EventCalendarGlyph,
+  EventKermesIcon,
+  EventPinGlyph,
+  EventStoreGlyph,
+} from '@/components/IncidentTypeGlyph';
 import { HButton } from '@/components/ui/HButton';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
+import { isCampusEventPast } from '@/lib/events';
 import { createClient } from '@/lib/supabase/client';
 
 const CATEGORIES = Object.keys(VENDOR_CATEGORY_LABELS) as VendorCategory[];
@@ -33,18 +39,50 @@ function formatEventDate(iso: string | null | undefined): string {
   });
 }
 
-function defaultEventDate(): string {
+function formatEventRange(starts: string | null | undefined, ends: string | null | undefined): string {
+  if (!starts && !ends) return 'Fecha por confirmar';
+  if (starts && ends) return `${formatEventDate(starts)} → ${formatEventDate(ends)}`;
+  return formatEventDate(starts ?? ends);
+}
+
+function defaultEventStart(): string {
   const d = new Date();
   d.setDate(d.getDate() + 7);
   d.setHours(10, 0, 0, 0);
   return d.toISOString();
 }
 
-function toDatetimeLocalValue(iso: string | null | undefined): string {
-  if (!iso) return toDatetimeLocalValue(defaultEventDate());
-  const d = new Date(iso);
+function defaultEventEnd(fromIso?: string | null): string {
+  const d = fromIso ? new Date(fromIso) : new Date(defaultEventStart());
+  if (Number.isNaN(d.getTime())) return defaultEventStart();
+  // Por defecto: mismo día a las 22:00 (feria de día completo).
+  d.setHours(22, 0, 0, 0);
+  const start = fromIso ? new Date(fromIso) : d;
+  if (d.getTime() <= start.getTime()) {
+    d.setTime(start.getTime() + 6 * 60 * 60 * 1000);
+  }
+  return d.toISOString();
+}
+
+function toDatetimeLocalValue(iso: string | null | undefined, fallbackIso: string): string {
+  const d = new Date(iso || fallbackIso);
+  if (Number.isNaN(d.getTime())) return toDatetimeLocalValue(fallbackIso, fallbackIso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function emptyCreateForm(): CreateCampusEventInput {
+  const starts_at = defaultEventStart();
+  return {
+    title: '',
+    description: '',
+    lat: 20.6534,
+    lng: -100.4045,
+    location_label: '',
+    max_vendors: 20,
+    starts_at,
+    ends_at: defaultEventEnd(starts_at),
+  };
 }
 
 async function authHeaders(): Promise<HeadersInit> {
@@ -72,15 +110,7 @@ export function EventsPageContent() {
   const [showApply, setShowApply] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const [createForm, setCreateForm] = useState<CreateCampusEventInput>({
-    title: '',
-    description: '',
-    lat: 20.6534,
-    lng: -100.4045,
-    location_label: '',
-    max_vendors: 20,
-    starts_at: defaultEventDate(),
-  });
+  const [createForm, setCreateForm] = useState<CreateCampusEventInput>(() => emptyCreateForm());
 
   const [applyForm, setApplyForm] = useState<CreateVendorApplicationInput>({
     business_name: '',
@@ -159,9 +189,14 @@ export function EventsPageContent() {
       if (selectedId) {
         void loadDetail(selectedId, { silent: true }).catch(() => {});
       }
-    }, 20_000);
+    }, 10_000);
     return () => window.clearInterval(timer);
   }, [loadEvents, loadDetail, selectedId]);
+
+  const visibleEvents = useMemo(
+    () => events.filter((ev) => ev.status === 'abierto' && !isCampusEventPast(ev)),
+    [events],
+  );
 
   const vendorsVisible = useMemo(() => {
     const apps = detail?.applications ?? [];
@@ -175,6 +210,14 @@ export function EventsPageContent() {
     setBusy(true);
     setError(null);
     try {
+      if (!createForm.starts_at?.trim() || !createForm.ends_at?.trim()) {
+        throw new Error('Indica fecha de inicio y fecha de fin');
+      }
+      const startMs = new Date(createForm.starts_at).getTime();
+      const endMs = new Date(createForm.ends_at).getTime();
+      if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+        throw new Error('La fecha de fin debe ser posterior al inicio');
+      }
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: await authHeaders(),
@@ -184,17 +227,9 @@ export function EventsPageContent() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error al crear');
       setShowCreate(false);
-      setCreateForm({
-        title: '',
-        description: '',
-        lat: 20.6534,
-        lng: -100.4045,
-        location_label: '',
-        max_vendors: 20,
-        starts_at: defaultEventDate(),
-      });
-      await refreshAll(data.id);
-      setSelectedId(data.id);
+      setCreateForm(emptyCreateForm());
+      setSelectedId(data.id as string);
+      await refreshAll(data.id as string);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error');
     } finally {
@@ -284,12 +319,17 @@ export function EventsPageContent() {
       <header className="web-app-header">
         <HermesLogoLockup size={28} />
         <div className="web-app-header-actions">
+          {isAdmin && (
+            <Link className="web-header-link" href="/dashboard">
+              Panel
+            </Link>
+          )}
           <Link className="web-header-link" href="/mapa">
             Mapa
           </Link>
           {isAdmin && (
             <HButton onClick={() => setShowCreate(true)} disabled={busy}>
-              + Crear evento
+              Crear evento
             </HButton>
           )}
         </div>
@@ -302,7 +342,7 @@ export function EventsPageContent() {
           {loading && <p>Cargando…</p>}
           {error && <p className="events-error">{error}</p>}
           <ul className="events-list">
-            {events.map((ev) => (
+            {visibleEvents.map((ev) => (
               <li key={ev.id}>
                 <button
                   type="button"
@@ -310,7 +350,7 @@ export function EventsPageContent() {
                   onClick={() => setSelectedId(ev.id)}
                 >
                   <strong className="events-item-title">
-                    <EventPopperIcon size={22} />
+                    <EventKermesIcon size={22} />
                     {ev.title}
                   </strong>
                   <span
@@ -318,14 +358,24 @@ export function EventsPageContent() {
                   >
                     · {ev.status === 'abierto' ? 'Abierto' : 'Cerrado'}
                   </span>
-                  <small>
-                    📅 {formatEventDate(ev.starts_at)} · {ev.location_label || 'Campus UTEQ'} ·{' '}
-                    {ev.accepted_count ?? 0}/{ev.max_vendors} puestos
+                  <small className="events-item-meta">
+                    <span className="events-meta-chip">
+                      <EventCalendarGlyph size={16} />
+                      {formatEventRange(ev.starts_at, ev.ends_at)}
+                    </span>
+                    <span className="events-meta-chip">
+                      <EventPinGlyph size={16} />
+                      {ev.location_label || 'Campus UTEQ'}
+                    </span>
+                    <span className="events-meta-chip">
+                      <EventStoreGlyph size={16} />
+                      {ev.accepted_count ?? 0}/{ev.max_vendors} puestos
+                    </span>
                   </small>
                 </button>
               </li>
             ))}
-            {!loading && events.length === 0 && (
+            {!loading && visibleEvents.length === 0 && (
               <li className="events-empty">Aún no hay eventos</li>
             )}
           </ul>
@@ -339,11 +389,15 @@ export function EventsPageContent() {
                 <div>
                   <h2>{detail.event.title}</h2>
                   <p>{detail.event.description || 'Sin descripción'}</p>
-                  <p className="events-meta">
-                    📅 {formatEventDate(detail.event.starts_at)}
-                    {' · '}
-                    📍 {detail.event.location_label || `${detail.event.lat}, ${detail.event.lng}`}
-                    {' · '}
+                  <p className="events-meta events-meta-row">
+                    <span className="events-meta-chip">
+                      <EventCalendarGlyph size={18} />
+                      {formatEventRange(detail.event.starts_at, detail.event.ends_at)}
+                    </span>
+                    <span className="events-meta-chip">
+                      <EventPinGlyph size={18} />
+                      {detail.event.location_label || `${detail.event.lat}, ${detail.event.lng}`}
+                    </span>
                     <span className={detail.event.status === 'abierto' ? 'open' : 'closed'}>
                       {detail.event.status === 'abierto' ? 'Abierto' : 'Cerrado'}
                     </span>
@@ -388,14 +442,19 @@ export function EventsPageContent() {
               <ul className="vendor-cards">
                 {vendorsVisible.map((v) => (
                   <li key={v.id} className="vendor-card">
-                    <span className="vendor-emoji">{VENDOR_CATEGORY_EMOJI[v.category]}</span>
+                    <span className="vendor-emoji">
+                      <EventStoreGlyph size={28} />
+                    </span>
                     <div>
                       <div className="vendor-title-row">
                         <strong>{v.business_name}</strong>
                         <span className="vendor-open">· Abierto</span>
                       </div>
                       <p>{v.what_they_sell}</p>
-                      <small>📍 {detail.event.location_label || 'Campus'}</small>
+                      <small className="events-meta-chip">
+                        <EventPinGlyph size={15} />
+                        {detail.event.location_label || 'Campus'}
+                      </small>
                     </div>
                   </li>
                 ))}
@@ -441,7 +500,11 @@ export function EventsPageContent() {
 
       {showCreate && (
         <div className="events-modal-backdrop" onClick={() => setShowCreate(false)} role="presentation">
-          <form className="events-modal" onClick={(e) => e.stopPropagation()} onSubmit={handleCreate}>
+          <form
+            className="events-modal events-modal-wide"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleCreate}
+          >
             <h3>Nuevo evento</h3>
             <label>
               Título
@@ -458,68 +521,95 @@ export function EventsPageContent() {
                 onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
               />
             </label>
-            <label>
-              Fecha y hora del evento
-              <input
-                type="datetime-local"
-                required
-                value={toDatetimeLocalValue(createForm.starts_at)}
-                onChange={(e) => {
-                  const local = new Date(e.target.value);
-                  setCreateForm({
-                    ...createForm,
-                    starts_at: Number.isNaN(local.getTime())
-                      ? defaultEventDate()
-                      : local.toISOString(),
-                  });
-                }}
-              />
-            </label>
-            <label>
-              Lugar (etiqueta)
-              <input
-                value={createForm.location_label ?? ''}
-                onChange={(e) => setCreateForm({ ...createForm, location_label: e.target.value })}
-              />
-            </label>
-            <div className="events-modal-grid">
+            <div className="events-modal-grid events-modal-grid-2">
               <label>
-                Lat
+                <span className="events-label-with-icon">
+                  <EventCalendarGlyph size={18} />
+                  Fecha de inicio
+                </span>
                 <input
-                  type="number"
-                  step="any"
+                  type="datetime-local"
                   required
-                  value={createForm.lat}
-                  onChange={(e) => setCreateForm({ ...createForm, lat: Number(e.target.value) })}
+                  value={toDatetimeLocalValue(createForm.starts_at, defaultEventStart())}
+                  onChange={(e) => {
+                    const local = new Date(e.target.value);
+                    if (Number.isNaN(local.getTime())) return;
+                    const starts_at = local.toISOString();
+                    const endMs = createForm.ends_at ? new Date(createForm.ends_at).getTime() : NaN;
+                    setCreateForm({
+                      ...createForm,
+                      starts_at,
+                      ends_at:
+                        Number.isNaN(endMs) || endMs <= local.getTime()
+                          ? defaultEventEnd(starts_at)
+                          : createForm.ends_at,
+                    });
+                  }}
                 />
               </label>
               <label>
-                Lng
+                <span className="events-label-with-icon">
+                  <EventCalendarGlyph size={18} />
+                  Fecha de fin
+                </span>
                 <input
-                  type="number"
-                  step="any"
+                  type="datetime-local"
                   required
-                  value={createForm.lng}
-                  onChange={(e) => setCreateForm({ ...createForm, lng: Number(e.target.value) })}
-                />
-              </label>
-              <label>
-                Cupo puestos
-                <input
-                  type="number"
-                  min={1}
-                  required
-                  value={createForm.max_vendors}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, max_vendors: Number(e.target.value) })
-                  }
+                  value={toDatetimeLocalValue(
+                    createForm.ends_at,
+                    defaultEventEnd(createForm.starts_at),
+                  )}
+                  onChange={(e) => {
+                    const local = new Date(e.target.value);
+                    if (Number.isNaN(local.getTime())) return;
+                    setCreateForm({ ...createForm, ends_at: local.toISOString() });
+                  }}
                 />
               </label>
             </div>
+            <label>
+              <span className="events-label-with-icon">
+                <EventPinGlyph size={18} />
+                Lugar (etiqueta)
+              </span>
+              <input
+                value={createForm.location_label ?? ''}
+                onChange={(e) => setCreateForm({ ...createForm, location_label: e.target.value })}
+                placeholder="Ej. Entrada principal, patio central…"
+              />
+            </label>
+            <div className="events-map-field">
+              <span className="events-map-field-label events-label-with-icon">
+                <EventPinGlyph size={18} />
+                Ubicación en el mapa
+              </span>
+              <EventMapPicker
+                lat={createForm.lat}
+                lng={createForm.lng}
+                onChange={(nextLat, nextLng) =>
+                  setCreateForm({ ...createForm, lat: nextLat, lng: nextLng })
+                }
+              />
+            </div>
+            <label>
+              <span className="events-label-with-icon">
+                <EventStoreGlyph size={18} />
+                Cupo puestos
+              </span>
+              <input
+                type="number"
+                min={1}
+                required
+                value={createForm.max_vendors}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, max_vendors: Number(e.target.value) })
+                }
+              />
+            </label>
             <div className="events-modal-actions">
-              <button type="button" onClick={() => setShowCreate(false)}>
+              <HButton type="button" variant="ghost" onClick={() => setShowCreate(false)}>
                 Cancelar
-              </button>
+              </HButton>
               <HButton type="submit" disabled={busy}>
                 Crear y notificar
               </HButton>
@@ -571,9 +661,9 @@ export function EventsPageContent() {
               </select>
             </label>
             <div className="events-modal-actions">
-              <button type="button" onClick={() => setShowApply(false)}>
+              <HButton type="button" variant="ghost" onClick={() => setShowApply(false)}>
                 Cancelar
-              </button>
+              </HButton>
               <HButton type="submit" disabled={busy}>
                 Enviar solicitud
               </HButton>

@@ -57,7 +57,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _bootstrap();
-    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!mounted) return;
       unawaited(_loadIncidents(silent: true));
       unawaited(_loadTodayEvents());
@@ -141,16 +141,21 @@ class _HomePageState extends State<HomePage> {
       );
       final list = (res.data as List?) ?? [];
       final now = DateTime.now();
-      final today = <_TodayEvent>[];
+      final active = <_TodayEvent>[];
       for (final raw in list) {
         final e = Map<String, dynamic>.from(raw as Map);
         if (e['status'] != 'abierto') continue;
-        final starts = DateTime.tryParse('${e['starts_at']}')?.toLocal();
-        if (starts == null) continue;
-        if (starts.year != now.year || starts.month != now.month || starts.day != now.day) {
-          continue;
+        final ends = DateTime.tryParse('${e['ends_at']}')?.toLocal();
+        if (ends != null) {
+          final endDay = DateTime(ends.year, ends.month, ends.day, 23, 59, 59, 999);
+          if (endDay.isBefore(now)) continue;
+        } else {
+          final starts = DateTime.tryParse('${e['starts_at']}')?.toLocal();
+          if (starts == null) continue;
+          final endOfDay = DateTime(starts.year, starts.month, starts.day, 23, 59, 59, 999);
+          if (endOfDay.isBefore(now)) continue;
         }
-        today.add(
+        active.add(
           _TodayEvent(
             id: '${e['id']}',
             title: '${e['title']}',
@@ -159,7 +164,7 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       }
-      if (mounted) setState(() => _todayEvents = today);
+      if (mounted) setState(() => _todayEvents = active);
     } catch (_) {
       // no bloquear mapa
     }
@@ -193,6 +198,7 @@ class _HomePageState extends State<HomePage> {
             _selected = created;
           });
           unawaited(_loadIncidents(silent: true));
+          unawaited(_loadTodayEvents());
         },
       ),
     );
@@ -263,8 +269,8 @@ class _HomePageState extends State<HomePage> {
                   for (final inc in visible)
                     Marker(
                       point: LatLng(inc.lat, inc.lng),
-                      width: 52,
-                      height: 52,
+                      width: 60,
+                      height: 60,
                       child: IncidentMarker(
                         type: inc.type,
                         selected: _selected?.id == inc.id,
@@ -274,27 +280,27 @@ class _HomePageState extends State<HomePage> {
                   for (final ev in _todayEvents)
                     Marker(
                       point: LatLng(ev.lat, ev.lng),
-                      width: 56,
-                      height: 56,
+                      width: 64,
+                      height: 64,
                       child: GestureDetector(
                         onTap: () => context.go('/app/events'),
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF8B5CF6), width: 2.5),
+                            border: Border.all(color: const Color(0xFFF59E0B), width: 2.5),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                                color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
                                 blurRadius: 10,
                               ),
                             ],
                           ),
                           alignment: Alignment.center,
                           child: const AnimatedAssetIcon(
-                            assetPath: 'assets/markers/kermes-map.png',
-                            size: 34,
-                            fallbackEmoji: '🎪',
+                            assetPath: 'assets/markers/kermes-icon.png',
+                            size: 40,
+                            fallbackEmoji: '🎈',
                           ),
                         ),
                       ),

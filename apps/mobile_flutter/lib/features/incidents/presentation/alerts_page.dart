@@ -1,7 +1,12 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/di/repositories.dart';
 import '../../../domain/constants.dart';
 import '../../../domain/helpers.dart';
@@ -15,13 +20,33 @@ class AlertsPage extends StatefulWidget {
   State<AlertsPage> createState() => _AlertsPageState();
 }
 
+class _UpcomingEvent {
+  const _UpcomingEvent({
+    required this.id,
+    required this.title,
+    required this.location,
+    required this.startsAt,
+    required this.endsAt,
+  });
+
+  final String id;
+  final String title;
+  final String location;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+}
+
 const Color _kBg = Color(0xFFF8FAFC);
 const Color _kText = Color(0xFF0F172A);
 const Color _kMuted = Color(0xFF64748B);
 const Color _kBorder = Color(0xFFE5E7EB);
+const Color _kEventBg = Color(0xFFFFF7ED);
+const Color _kEventBorder = Color(0xFFFDBA74);
+const Color _kEventAccent = Color(0xFFC2410C);
 
 class _AlertsPageState extends State<AlertsPage> {
   List<Incident> _incidents = [];
+  List<_UpcomingEvent> _events = [];
   bool _loading = true;
   IncidentType? _filter;
   ({double lat, double lng})? _coords;
@@ -48,9 +73,59 @@ class _AlertsPageState extends State<AlertsPage> {
         maxAgeHours: incidentMaxAgeHours,
         radiusM: incidentNearbyRadiusM,
       );
-      setState(() => _incidents = nearby);
+      final events = await _loadUpcomingEvents();
+      setState(() {
+        _incidents = nearby;
+        _events = events;
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<List<_UpcomingEvent>> _loadUpcomingEvents() async {
+    final base = AppEnv.webApiUrl;
+    if (base == null) return [];
+    try {
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      final dio = Dio(BaseOptions(baseUrl: base));
+      final res = await dio.get(
+        '/api/events',
+        options: Options(headers: token != null ? {'Authorization': 'Bearer $token'} : null),
+      );
+      final list = (res.data as List?) ?? [];
+      final now = DateTime.now();
+      final out = <_UpcomingEvent>[];
+      for (final raw in list) {
+        final e = Map<String, dynamic>.from(raw as Map);
+        if (e['status'] != 'abierto') continue;
+        final ends = DateTime.tryParse('${e['ends_at']}')?.toLocal();
+        final starts = DateTime.tryParse('${e['starts_at']}')?.toLocal();
+        if (ends != null) {
+          final endDay = DateTime(ends.year, ends.month, ends.day, 23, 59, 59, 999);
+          if (endDay.isBefore(now)) continue;
+        } else if (starts != null) {
+          final endOfDay = DateTime(starts.year, starts.month, starts.day, 23, 59, 59, 999);
+          if (endOfDay.isBefore(now)) continue;
+        }
+        out.add(
+          _UpcomingEvent(
+            id: '${e['id']}',
+            title: '${e['title']}',
+            location: '${e['location_label'] ?? 'Campus UTEQ'}',
+            startsAt: starts,
+            endsAt: ends,
+          ),
+        );
+      }
+      out.sort((a, b) {
+        final ta = a.startsAt?.millisecondsSinceEpoch ?? 1 << 62;
+        final tb = b.startsAt?.millisecondsSinceEpoch ?? 1 << 62;
+        return ta.compareTo(tb);
+      });
+      return out;
+    } catch (_) {
+      return [];
     }
   }
 
@@ -79,12 +154,22 @@ class _AlertsPageState extends State<AlertsPage> {
     return formatDistance(distanceMeters(_coords!.lat, _coords!.lng, i.lat, i.lng));
   }
 
+  String _formatEventWhen(DateTime? d) {
+    if (d == null) return 'Fecha por confirmar';
+    const months = [
+      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    ];
+    final hh = d.hour.toString().padLeft(2, '0');
+    final mm = d.minute.toString().padLeft(2, '0');
+    return '${d.day} ${months[d.month - 1]} · $hh:$mm';
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filter == null
         ? _incidents
         : _incidents.where((i) => i.type == _filter).toList();
-    // Ya vienen ordenadas por más recientes; mantener ese orden tras el filtro de tipo.
     final sorted = filtered;
 
     Incident? critical;
@@ -108,12 +193,24 @@ class _AlertsPageState extends State<AlertsPage> {
                   children: [
                     _headerRow(),
                     const SizedBox(height: 14),
+                    _eventsSection(),
+                    const SizedBox(height: 16),
                     _filters(),
                     const SizedBox(height: 14),
                     if (critical != null) ...[
                       _criticalBanner(critical),
                       const SizedBox(height: 12),
                     ],
+                    const Text(
+                      'Alertas cercanas',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                        color: _kMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     if (sorted.isEmpty)
                       _empty()
                     else
@@ -121,6 +218,145 @@ class _AlertsPageState extends State<AlertsPage> {
                   ],
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _eventsSection() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _kEventBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kEventBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const AnimatedAssetIcon(
+                assetPath: 'assets/markers/kermes-icon.png',
+                size: 28,
+                fallbackEmoji: '🎈',
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Eventos próximos',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: _kEventAccent,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.go('/app/events'),
+                child: const Text('Ver todos'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_events.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No hay eventos próximos',
+                style: TextStyle(color: _kMuted, fontSize: 13),
+              ),
+            )
+          else
+            ..._events.take(5).map(_eventCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _eventCard(_UpcomingEvent e) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => context.go('/app/events'),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _kEventBorder),
+            ),
+            child: Row(
+              children: [
+                const AnimatedAssetIcon(
+                  assetPath: 'assets/markers/kermes-icon.png',
+                  size: 34,
+                  fallbackEmoji: '🎈',
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        e.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: _kText,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Image.asset(
+                            'assets/markers/event-pin.png',
+                            width: 14,
+                            height: 14,
+                            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              e.location,
+                              style: const TextStyle(fontSize: 12, color: _kMuted),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Image.asset(
+                            'assets/markers/event-calendar.png',
+                            width: 14,
+                            height: 14,
+                            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              e.endsAt != null
+                                  ? '${_formatEventWhen(e.startsAt)} → ${_formatEventWhen(e.endsAt)}'
+                                  : _formatEventWhen(e.startsAt),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _kEventAccent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: _kEventAccent),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -288,16 +524,18 @@ class _AlertsPageState extends State<AlertsPage> {
 
   Widget _alertCard(Incident i) {
     final color = incidentColors[i.type] ?? const Color(0xFF2563EB);
+    final bg = incidentBackgrounds[i.type] ?? Colors.white;
+    final border = incidentBorderColors[i.type] ?? _kBorder;
     final dist = _distanceLabel(i);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: bg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: border, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: color.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -323,8 +561,9 @@ class _AlertsPageState extends State<AlertsPage> {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.12),
+                              color: Colors.white.withValues(alpha: 0.85),
                               borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: border),
                             ),
                             alignment: Alignment.center,
                             child: IncidentTypeIcon(

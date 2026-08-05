@@ -42,8 +42,8 @@ export interface CategoryMeta {
 export const CATEGORY: Record<IncidentType, CategoryMeta> = {
   robo: { color: '#EF4444', bg: '#FEF2F2', label: INCIDENT_LABELS.robo, glyph: INCIDENT_EMOJI.robo },
   accidente: {
-    color: '#F59E0B',
-    bg: '#FFFBEB',
+    color: '#EAB308',
+    bg: '#FEF9C3',
     label: INCIDENT_LABELS.accidente,
     glyph: INCIDENT_EMOJI.accidente,
   },

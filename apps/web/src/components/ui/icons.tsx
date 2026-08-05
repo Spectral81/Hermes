@@ -100,11 +100,58 @@ export function ThumbUpIcon({ filled }: { filled?: boolean }) {
   );
 }
 
-export function MapPinIcon() {
+export function MapPinIcon({ size = 18 }: { size?: number } = {}) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+      className="ui-icon"
+    >
       <path d="M12 21s7-5.2 7-11a7 7 0 10-14 0c0 5.8 7 11 7 11z" />
       <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
+export function CalendarIcon({ size = 16 }: { size?: number } = {}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+      className="ui-icon"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+      <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function StoreIcon({ size = 16 }: { size?: number } = {}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden
+      className="ui-icon"
+    >
+      <path d="M3 9l1.5-5h15L21 9" strokeLinejoin="round" />
+      <path d="M4 9h16v11a1 1 0 01-1 1H5a1 1 0 01-1-1V9z" strokeLinejoin="round" />
+      <path d="M9 21v-7h6v7" strokeLinejoin="round" />
     </svg>
   );
 }
