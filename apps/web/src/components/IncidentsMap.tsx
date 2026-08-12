@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   INCIDENT_LABELS,
   INCIDENT_VALIDATION_TARGET,
@@ -109,11 +110,13 @@ function initialMapLocation(): { lat: number; lng: number; fromCache: boolean } 
 }
 
 export function IncidentsMap() {
+  const searchParams = useSearchParams();
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const layerRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
   const LRef = useRef<any>(null);
+  const focusFromChatDone = useRef(false);
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [mapEvents, setMapEvents] = useState<CampusEvent[]>([]);
@@ -225,6 +228,15 @@ export function IncidentsMap() {
     }
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    if (focusFromChatDone.current || !mapRef.current) return;
+    const lat = Number(searchParams.get('lat'));
+    const lng = Number(searchParams.get('lng'));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    focusFromChatDone.current = true;
+    mapRef.current.setView([lat, lng], 18);
+  }, [searchParams, status]);
 
   const applyUserLocation = useCallback((location: { lat: number; lng: number }) => {
     setCoords(location);
@@ -415,6 +427,9 @@ export function IncidentsMap() {
       <header className="web-app-header">
         <HermesLogoLockup size={28} />
         <div className="web-app-header-actions">
+          <a className="web-header-link" href="/asistente">
+            Asistente
+          </a>
           <a className="web-header-link" href="/eventos">
             Eventos
           </a>

@@ -324,6 +324,9 @@ export function EventsPageContent() {
               Panel
             </Link>
           )}
+          <Link className="web-header-link" href="/asistente">
+            Asistente
+          </Link>
           <Link className="web-header-link" href="/mapa">
             Mapa
           </Link>

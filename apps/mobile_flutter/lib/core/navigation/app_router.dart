@@ -10,6 +10,7 @@ import '../../features/events/presentation/events_page.dart';
 import '../../features/incidents/presentation/alert_detail_page.dart';
 import '../../features/incidents/presentation/alerts_page.dart';
 import '../../features/incidents/presentation/home_page.dart';
+import '../../features/incidents/presentation/reports_chat_page.dart';
 import '../../features/incidents/presentation/validate_report_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../auth/auth_state_controller.dart';
@@ -80,6 +81,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/app/dashboard',
       builder: (_, __) => const AdminDashboardPage(),
+    ),
+    GoRoute(
+      path: '/app/chat',
+      builder: (_, __) => const ReportsChatPage(),
     ),
   ],
 );

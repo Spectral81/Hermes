@@ -382,6 +382,19 @@ class _AlertsPageState extends State<AlertsPage> {
           ),
         ),
         Container(
+          margin: const EdgeInsets.only(right: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _kBorder),
+          ),
+          child: IconButton(
+            onPressed: () => context.push('/app/chat'),
+            icon: const Icon(Icons.smart_toy_outlined, color: _kText),
+            tooltip: 'Asistente',
+          ),
+        ),
+        Container(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),

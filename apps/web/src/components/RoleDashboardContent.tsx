@@ -195,6 +195,9 @@ export function RoleDashboardContent() {
                   Gestionar eventos
                 </Link>
               )}
+              <Link href="/asistente" className="hermes-admin-map-btn">
+                Asistente
+              </Link>
               <Link href="/mapa" className="hermes-admin-map-btn">
                 Ver mapa
               </Link>
