@@ -327,6 +327,9 @@ export function EventsPageContent() {
           <Link className="web-header-link" href="/asistente">
             Asistente
           </Link>
+          <Link className="web-header-link" href="/mis-reportes">
+            Mis reportes
+          </Link>
           <Link className="web-header-link" href="/mapa">
             Mapa
           </Link>
@@ -442,7 +445,7 @@ export function EventsPageContent() {
                 ))}
               </div>
 
-              <ul className="vendor-cards">
+                  <ul className="vendor-cards">
                 {vendorsVisible.map((v) => (
                   <li key={v.id} className="vendor-card">
                     <span className="vendor-emoji">
@@ -451,7 +454,13 @@ export function EventsPageContent() {
                     <div>
                       <div className="vendor-title-row">
                         <strong>{v.business_name}</strong>
-                        <span className="vendor-open">· Abierto</span>
+                        <span
+                          className={
+                            detail.event.status === 'abierto' ? 'vendor-open' : 'vendor-closed'
+                          }
+                        >
+                          · {detail.event.status === 'abierto' ? 'Abierto' : 'Cerrado'}
+                        </span>
                       </div>
                       <p>{v.what_they_sell}</p>
                       <small className="events-meta-chip">

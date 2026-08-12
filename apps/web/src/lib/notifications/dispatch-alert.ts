@@ -15,6 +15,39 @@ export interface DispatchAlertInput {
   createdBy?: string;
 }
 
+const waLastSentByRecipient = new Map<string, number>();
+
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+function normalizeRecipientForRules(raw: string): string {
+  const digits = digitsOnly(raw);
+  if (!digits) return '';
+  if (digits.startsWith('521') && digits.length === 13) return `52${digits.slice(3)}`;
+  if (digits.startsWith('52') && digits.length === 12) return digits;
+  if (digits.length === 10) return `52${digits}`;
+  return digits;
+}
+
+function parseRecipientAllowlist(): Set<string> {
+  const raw = process.env.WHATSAPP_TEST_RECIPIENTS?.trim();
+  if (!raw) return new Set();
+  return new Set(
+    raw
+      .split(',')
+      .map((item) => normalizeRecipientForRules(item.trim()))
+      .filter(Boolean),
+  );
+}
+
+function parseCooldownMs(): number {
+  const raw = process.env.WHATSAPP_MIN_INTERVAL_SECONDS?.trim();
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 10 * 60 * 1000; // 10 min default
+  return parsed * 1000;
+}
+
 async function resolveAuthorName(
   admin: ReturnType<typeof createAdminClient>,
   createdBy: string | undefined,
@@ -91,18 +124,39 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
       );
     } else {
       const withPhone = recipients.filter((u) => Boolean(u.telefono?.trim()));
+      const allowlist = parseRecipientAllowlist();
+      const cooldownMs = parseCooldownMs();
+      const now = Date.now();
+      const eligible = withPhone.filter((u) => {
+        const normalized = normalizeRecipientForRules(u.telefono!.trim());
+        if (!normalized) return false;
+        if (allowlist.size > 0 && !allowlist.has(normalized)) return false;
+        const last = waLastSentByRecipient.get(normalized);
+        if (typeof last === 'number' && now - last < cooldownMs) {
+          console.info('[whatsapp/sos] omitido por cooldown', {
+            phone: normalized,
+            secondsLeft: Math.ceil((cooldownMs - (now - last)) / 1000),
+          });
+          return false;
+        }
+        return true;
+      });
       console.info('[whatsapp/sos] destinatarios', {
         incidentId: input.incidentId,
         total: withPhone.length,
+        elegibles: eligible.length,
+        filtroPruebas: allowlist.size > 0,
+        cooldownSeconds: Math.round(cooldownMs / 1000),
       });
 
-      if (withPhone.length === 0) {
-        console.warn('[whatsapp/sos] ningún perfil activo tiene telefono en Supabase');
+      if (eligible.length === 0) {
+        console.warn('[whatsapp/sos] sin destinatarios elegibles (allowlist/cooldown)');
       } else {
         const authorName = await resolveAuthorName(admin, input.createdBy, recipients);
-        for (const user of withPhone) {
+        for (const user of eligible) {
           const phone = user.telefono!.trim();
           const e164 = phone.startsWith('+') ? phone : `+52${phone}`;
+          const normalized = normalizeRecipientForRules(phone);
           tasks.push(
             sendSosWhatsApp({
               toPhoneE164: e164,
@@ -113,7 +167,9 @@ export async function dispatchIncidentAlerts(input: DispatchAlertInput): Promise
             }).then((result) => {
               if (!result.ok && !result.skipped) {
                 console.error('[whatsapp/sos] falló', phone, result.error);
+                return;
               }
+              waLastSentByRecipient.set(normalized, Date.now());
             }),
           );
         }

@@ -124,6 +124,9 @@ export function ReportsChatContent() {
           <Link className="web-header-link" href="/eventos">
             Eventos
           </Link>
+          <Link className="web-header-link" href="/mis-reportes">
+            Mis reportes
+          </Link>
         </div>
       </header>
 

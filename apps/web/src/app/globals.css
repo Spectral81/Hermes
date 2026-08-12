@@ -1336,6 +1336,167 @@ body {
   justify-content: center;
 }
 
+.hermes-profile-loading-fill {
+  min-height: calc(100vh - 60px);
+}
+
+.profile-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 20px 48px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.profile-hero-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.profile-hero-text h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.profile-hero-text p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.profile-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.profile-stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
+a.profile-stat-chip:hover {
+  border-color: #93c5fd;
+  background: #f8fbff;
+}
+
+.profile-stat-chip strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.profile-stat-chip span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  text-align: center;
+}
+
+.profile-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.profile-panel h2 {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.profile-dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.profile-dl > div {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.profile-dl > div:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.profile-dl dt {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.profile-dl dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.profile-actions {
+  margin-bottom: 8px;
+}
+
+.profile-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.profile-action-link:hover {
+  background: #dbeafe;
+}
+
+.profile-logout-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
 .hermes-profile-header {
   background: #3b82f6;
   padding: 16px 20px 64px;
@@ -3298,7 +3459,8 @@ body {
   font-weight: 700;
 }
 .events-status.closed,
-.events-meta .closed {
+.events-meta .closed,
+.vendor-closed {
   color: #64748b;
   font-weight: 700;
 }
@@ -3846,5 +4008,66 @@ body {
 
 .profile-drawer-wearable {
   margin: 12px 16px 0;
+}
+
+/* ——— Mis reportes ——— */
+.my-reports-app {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.my-reports-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.my-reports-head h1 {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.my-reports-head p {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.my-reports-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.my-reports-error {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.my-reports-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 24px;
+}
+
+.my-reports-map-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.my-reports-map-link:hover {
+  text-decoration: underline;
 }
 

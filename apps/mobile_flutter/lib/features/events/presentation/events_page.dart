@@ -4,10 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/env.dart';
 import '../../../core/di/repositories.dart';
+import '../../../core/network/api_auth.dart';
 import '../../../domain/models.dart';
 import '../../incidents/presentation/animated_asset_icon.dart';
 
@@ -35,10 +35,11 @@ class _EventsPageState extends State<EventsPage> {
   static const _campusLat = 20.6534;
   static const _campusLng = -100.4045;
 
-  Map<String, String> _headers() {
-    final token = Supabase.instance.client.auth.currentSession?.accessToken;
-    if (token == null) return {};
-    return {'Authorization': 'Bearer $token'};
+  Future<Options> _authOptions() async {
+    return Options(
+      headers: await authHeaders(),
+      contentType: 'application/json',
+    );
   }
 
   @override
@@ -92,7 +93,7 @@ class _EventsPageState extends State<EventsPage> {
     try {
       final res = await _dio.get(
         '/api/events',
-        options: Options(headers: _headers()),
+        options: Options(headers: {}),
       );
       _events = (res.data as List)
           .cast<Map>()
@@ -120,7 +121,7 @@ class _EventsPageState extends State<EventsPage> {
     try {
       final res = await _dio.get(
         '/api/events/$id',
-        options: Options(headers: _headers()),
+        options: await _authOptions(),
       );
       final data = Map<String, dynamic>.from(res.data as Map);
       _detailEvent = Map<String, dynamic>.from(data['event'] as Map);
@@ -369,7 +370,7 @@ class _EventsPageState extends State<EventsPage> {
           'what_they_sell': sell.text.trim(),
           'category': category,
         },
-        options: Options(headers: _headers(), contentType: 'application/json'),
+        options: await _authOptions(),
       );
       await _refreshAll();
       if (mounted) {
@@ -379,7 +380,9 @@ class _EventsPageState extends State<EventsPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(dioErrorMessage(e))),
+        );
       }
     }
   }
@@ -390,12 +393,44 @@ class _EventsPageState extends State<EventsPage> {
       await _dio.patch(
         '/api/events/$_selectedId/applications/$appId',
         data: {'status': status},
-        options: Options(headers: _headers(), contentType: 'application/json'),
+        options: await _authOptions(),
       );
       await _refreshAll();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(dioErrorMessage(e))),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleEventStatus() async {
+    if (!_isAdmin || _selectedId == null || _detailEvent == null) return;
+    final current = '${_detailEvent!['status']}';
+    final next = current == 'abierto' ? 'cerrado' : 'abierto';
+    try {
+      await _dio.patch(
+        '/api/events/$_selectedId',
+        data: {'status': next},
+        options: await _authOptions(),
+      );
+      if (mounted) {
+        setState(() {
+          _detailEvent = {..._detailEvent!, 'status': next};
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next == 'cerrado' ? 'Evento cerrado' : 'Evento abierto'),
+          ),
+        );
+      }
+      await _refreshAll(silent: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(dioErrorMessage(e))),
+        );
       }
     }
   }
@@ -715,14 +750,16 @@ class _EventsPageState extends State<EventsPage> {
           'starts_at': startsAt,
           'ends_at': endsAt,
         },
-        options: Options(headers: _headers(), contentType: 'application/json'),
+        options: await _authOptions(),
       );
       await _refreshAll();
       final id = (res.data as Map)['id'] as String?;
       if (id != null) await _openEvent(id);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(dioErrorMessage(e, fallback: 'No se pudo crear el evento'))),
+        );
       }
     }
   }
@@ -759,6 +796,15 @@ class _EventsPageState extends State<EventsPage> {
             TextButton(
               onPressed: _createEvent,
               child: const Text('Crear evento'),
+            ),
+          if (_isAdmin && _detailEvent != null)
+            TextButton(
+              onPressed: _toggleEventStatus,
+              child: Text(
+                _detailEvent!['status'] == 'abierto'
+                    ? 'Cerrar evento'
+                    : 'Abrir evento',
+              ),
             ),
           if (_detailEvent != null && _canShowParticipate)
             TextButton(onPressed: _apply, child: const Text('Participar')),
@@ -923,6 +969,7 @@ class _EventsPageState extends State<EventsPage> {
                           ),
                           const SizedBox(height: 12),
                           ...accepted.map((v) {
+                            final eventOpen = _detailEvent!['status'] == 'abierto';
                             return Card(
                               child: ListTile(
                                 leading: CircleAvatar(
@@ -939,9 +986,14 @@ class _EventsPageState extends State<EventsPage> {
                                 ),
                                 title: Text('${v['business_name']}'),
                                 subtitle: Text('${v['what_they_sell']}'),
-                                trailing: const Text(
-                                  '· Abierto',
-                                  style: TextStyle(color: Color(0xFF059669)),
+                                trailing: Text(
+                                  eventOpen ? '· Abierto' : '· Cerrado',
+                                  style: TextStyle(
+                                    color: eventOpen
+                                        ? const Color(0xFF059669)
+                                        : const Color(0xFF64748B),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             );

@@ -106,7 +106,11 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadIncidents({bool silent = false}) async {
     try {
-      final data = await incidentsRepository.fetchIncidents();
+      final data = (await incidentsRepository.fetchIncidents())
+          .where((i) =>
+              i.status != IncidentStatus.cerrado &&
+              i.status != IncidentStatus.rechazado)
+          .toList();
       if (!mounted) return;
       final nearby = filterNearbyRecentIncidents(
         items: data,

@@ -29,7 +29,8 @@ async function listIncidentsFromDb() {
     .select(
       'id, type, category, severity, description, lat, lng, status, likes_count, created_at, created_by',
     )
-    .neq('status', 'cerrado')
+    // Mapa / alertas públicas: no mostrar resueltos ni rechazados
+    .not('status', 'in', '(cerrado,rechazado)')
     .order('created_at', { ascending: false })
     .limit(500);
 

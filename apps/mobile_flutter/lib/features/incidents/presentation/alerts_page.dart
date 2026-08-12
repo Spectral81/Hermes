@@ -60,7 +60,11 @@ class _AlertsPageState extends State<AlertsPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final data = await incidentsRepository.fetchIncidents();
+      final data = (await incidentsRepository.fetchIncidents())
+          .where((i) =>
+              i.status != IncidentStatus.cerrado &&
+              i.status != IncidentStatus.rechazado)
+          .toList();
       _coords = await _getCoords();
       if (!mounted) return;
       final nearby = filterNearbyRecentIncidents(

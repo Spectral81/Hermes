@@ -102,6 +102,32 @@ function eventMarkerIcon(L: any, title: string) {
   });
 }
 
+/** Separa pines que caen en el mismo punto (p. ej. SOS + evento en el centro del campus). */
+function spreadOverlapping(
+  points: Array<{ lat: number; lng: number }>,
+): Array<{ lat: number; lng: number }> {
+  const buckets = new Map<string, number[]>();
+  points.forEach((p, idx) => {
+    const key = `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`;
+    const list = buckets.get(key) ?? [];
+    list.push(idx);
+    buckets.set(key, list);
+  });
+
+  const out = points.map((p) => ({ ...p }));
+  const step = 0.00018; // ~20 m
+  for (const idxs of buckets.values()) {
+    if (idxs.length < 2) continue;
+    idxs.forEach((idx, i) => {
+      if (i === 0) return;
+      const angle = (i * 2 * Math.PI) / idxs.length;
+      out[idx].lat += Math.cos(angle) * step;
+      out[idx].lng += Math.sin(angle) * step;
+    });
+  }
+  return out;
+}
+
 /** Ubicación rápida para pintar el mapa (caché o campus). El GPS se pide aparte. */
 function initialMapLocation(): { lat: number; lng: number; fromCache: boolean } {
   const stored = readStoredUserLocation();
@@ -135,13 +161,21 @@ export function IncidentsMap() {
   const [locating, setLocating] = useState(false);
 
   const sortedAlerts = useMemo((): IncidentWithDistance[] => {
-    return filterNearbyRecentIncidents(incidents, coords);
+    const visible = incidents.filter((i) => i.status !== 'cerrado' && i.status !== 'rechazado');
+    return filterNearbyRecentIncidents(visible, coords);
   }, [incidents, coords]);
 
-  /** Marcadores del mapa: todas las alertas recientes (no solo cercanas). */
+  /** Marcadores del mapa: alertas recientes visibles (sin cerrado/rechazado). */
   const mapIncidents = useMemo(() => {
     return incidents
-      .filter((i) => isRecentIso(i.created_at) && Number.isFinite(i.lat) && Number.isFinite(i.lng))
+      .filter(
+        (i) =>
+          i.status !== 'cerrado' &&
+          i.status !== 'rechazado' &&
+          isRecentIso(i.created_at) &&
+          Number.isFinite(i.lat) &&
+          Number.isFinite(i.lng),
+      )
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
   }, [incidents]);
 
@@ -149,17 +183,27 @@ export function IncidentsMap() {
     const layer = layerRef.current;
     if (!layer) return;
     layer.clearLayers();
-    for (const inc of list) {
-      if (!Number.isFinite(inc.lat) || !Number.isFinite(inc.lng)) continue;
-      const marker = L.marker([inc.lat, inc.lng], {
+
+    const rawPoints = [
+      ...list.map((inc) => ({ lat: inc.lat, lng: inc.lng })),
+      ...events.map((ev) => ({ lat: ev.lat, lng: ev.lng })),
+    ];
+    const spread = spreadOverlapping(rawPoints);
+
+    list.forEach((inc, idx) => {
+      if (!Number.isFinite(inc.lat) || !Number.isFinite(inc.lng)) return;
+      const pos = spread[idx];
+      const marker = L.marker([pos.lat, pos.lng], {
         icon: markerIcon(L, inc.type, inc.likes_count),
+        zIndexOffset: inc.type === 'panico' ? 500 : 100,
       });
       marker.on('click', () => setSelected(inc));
       marker.addTo(layer);
-    }
-    for (const ev of events) {
-      if (!Number.isFinite(ev.lat) || !Number.isFinite(ev.lng)) continue;
-      const marker = L.marker([ev.lat, ev.lng], {
+    });
+    events.forEach((ev, eIdx) => {
+      if (!Number.isFinite(ev.lat) || !Number.isFinite(ev.lng)) return;
+      const pos = spread[list.length + eIdx];
+      const marker = L.marker([pos.lat, pos.lng], {
         icon: eventMarkerIcon(L, ev.title),
         zIndexOffset: 200,
       });
@@ -167,7 +211,7 @@ export function IncidentsMap() {
         `<strong>${ev.title}</strong><br/>${ev.location_label || 'Campus'}<br/><a href="/eventos">Ver evento</a>`,
       );
       marker.addTo(layer);
-    }
+    });
   }, []);
 
   const loadIncidents = useCallback(async () => {
@@ -432,6 +476,9 @@ export function IncidentsMap() {
           </a>
           <a className="web-header-link" href="/eventos">
             Eventos
+          </a>
+          <a className="web-header-link" href="/mis-reportes">
+            Mis reportes
           </a>
           <button
             type="button"

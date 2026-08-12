@@ -1,19 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  INCIDENT_LABELS,
-  timeAgo,
-  type Incident,
-  type Profile,
-} from '@uteq/shared';
+import { type Incident, type Profile } from '@uteq/shared';
 import { HButton } from '@/components/ui/HButton';
-import { HCard } from '@/components/ui/HCard';
-import { CloseIcon, LogoutIcon, ThumbUpIcon } from '@/components/ui/icons';
+import { CloseIcon, LogoutIcon } from '@/components/ui/icons';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
-import { fetchIncidents } from '@/lib/incidents';
 import { createClient } from '@/lib/supabase/client';
-import { CATEGORY, HERMES } from '@/lib/theme';
+import { HERMES } from '@/lib/theme';
 import { WearableDevicesPanel } from '@/components/WearableDevicesPanel';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -40,7 +34,9 @@ export function ProfileDrawer({ open, onClose }: Props) {
     async function load() {
       setLoading(true);
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         setLoading(false);
         return;
@@ -49,8 +45,28 @@ export function ProfileDrawer({ open, onClose }: Props) {
       setProfile(data as Profile | null);
 
       try {
-        const all = await fetchIncidents();
-        setMyIncidents(all.filter((i) => i.created_by === user.id));
+        const { data: rows } = await supabase
+          .from('incidents')
+          .select('id, status, likes_count, created_by')
+          .eq('created_by', user.id)
+          .limit(200);
+        setMyIncidents(
+          (rows ?? []).map((row) => ({
+            id: String(row.id),
+            type: 'robo',
+            category: null,
+            severity: null,
+            description: '',
+            lat: 0,
+            lng: 0,
+            status: (row.status as Incident['status']) ?? 'activo',
+            likes_count: Number(row.likes_count ?? 0),
+            created_at: '',
+            created_by: String(row.created_by),
+            author_nombre: null,
+            liked_by_me: false,
+          })),
+        );
       } catch {
         // ignore
       }
@@ -132,41 +148,13 @@ export function ProfileDrawer({ open, onClose }: Props) {
             </div>
 
             <div className="profile-drawer-reports-head">
-              <h3>Mis reportes</h3>
-              <span>{myIncidents.length}</span>
-            </div>
-
-            <div className="profile-drawer-reports">
-              {myIncidents.length === 0 ? (
-                <p className="profile-drawer-empty">Aún no has creado reportes</p>
-              ) : (
-                myIncidents.slice(0, 5).map((r) => {
-                  const meta = CATEGORY[r.type];
-                  return (
-                    <HCard key={r.id} accent={meta.color} className="hermes-profile-report-card">
-                      <div className="hermes-profile-report-row">
-                        <span
-                          className="hermes-profile-report-glyph"
-                          style={{ backgroundColor: meta.bg, color: meta.color }}
-                        >
-                          {meta.glyph}
-                        </span>
-                        <div className="hermes-profile-report-text">
-                          <p>
-                            {INCIDENT_LABELS[r.type]}
-                            {r.description ? ` · ${r.description}` : ''}
-                          </p>
-                          <span>{timeAgo(r.created_at)}</span>
-                        </div>
-                        <span className="hermes-profile-report-likes">
-                          <ThumbUpIcon />
-                          {r.likes_count}
-                        </span>
-                      </div>
-                    </HCard>
-                  );
-                })
-              )}
+              <Link
+                href="/mis-reportes"
+                className="hermes-btn hermes-btn-primary hermes-btn-full"
+                onClick={onClose}
+              >
+                Ver mis reportes
+              </Link>
             </div>
 
             <div className="profile-drawer-footer">
