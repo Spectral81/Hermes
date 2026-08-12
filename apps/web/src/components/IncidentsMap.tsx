@@ -5,11 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import {
   INCIDENT_LABELS,
   INCIDENT_VALIDATION_TARGET,
+  isPrivilegedRole,
   timeAgo,
   type CampusEvent,
   type Incident,
+  type Profile,
 } from '@uteq/shared';
-import type { Profile } from '@uteq/shared';
 import { AppToast, type ToastMessage } from '@/components/AppToast';
 import { IncidentCard } from '@/components/IncidentCard';
 import { EventCalendarGlyph, EventKermesIcon, EventPinGlyph, IncidentTypeGlyph } from '@/components/IncidentTypeGlyph';
@@ -152,6 +153,7 @@ export function IncidentsMap() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [showStaffPanel, setShowStaffPanel] = useState(false);
   const [locationStatus, setLocationStatus] = useState<'locating' | 'pending' | 'ready' | 'denied'>(
     'locating',
   );
@@ -265,7 +267,10 @@ export function IncidentsMap() {
         if (!user) return;
         const { data } = await supabase.rpc('ensure_my_profile');
         const p = data as Profile | null;
-        if (p) setProfileName(`${p.nombre} ${p.apellidos}`);
+        if (p) {
+          setProfileName(`${p.nombre} ${p.apellidos}`);
+          setShowStaffPanel(isPrivilegedRole(p.role));
+        }
       } catch {
         // sin sesión activa
       }
@@ -471,6 +476,11 @@ export function IncidentsMap() {
       <header className="web-app-header">
         <HermesLogoLockup size={28} />
         <div className="web-app-header-actions">
+          {showStaffPanel && (
+            <a className="web-header-link" href="/dashboard">
+              Panel
+            </a>
+          )}
           <a className="web-header-link" href="/asistente">
             Asistente
           </a>

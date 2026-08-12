@@ -7,6 +7,15 @@ export type UserRole =
   | 'responsable_accidentes'
   | 'responsable_infraestructura';
 
+/** Roles con acceso al panel de gestión (no estudiantes). */
+export function isPrivilegedRole(role: string | null | undefined): boolean {
+  return (
+    role === 'admin_general' ||
+    role === 'responsable_robos' ||
+    role === 'responsable_accidentes' ||
+    role === 'responsable_infraestructura'
+  );
+}
 export interface Profile {
   id: string;
   matricula: string;

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { type Incident, type Profile } from '@uteq/shared';
+import { isPrivilegedRole, type Incident, type Profile } from '@uteq/shared';
 import { HermesLogoLockup } from '@/components/ui/HermesLogo';
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { HButton } from '@/components/ui/HButton';
@@ -78,12 +78,7 @@ export function ProfileContent() {
   }, [myIncidents]);
 
   const fullName = profile ? `${profile.nombre} ${profile.apellidos}` : 'Usuario UTEQ';
-  const privilegedRole = profile
-    ? profile.role === 'admin_general' ||
-      profile.role === 'responsable_robos' ||
-      profile.role === 'responsable_accidentes' ||
-      profile.role === 'responsable_infraestructura'
-    : false;
+  const privilegedRole = isPrivilegedRole(profile?.role);
 
   async function handleLogout() {
     const supabase = createClient();

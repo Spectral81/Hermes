@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   VENDOR_CATEGORY_LABELS,
+  isPrivilegedRole,
   type CampusEvent,
   type CreateCampusEventInput,
   type CreateVendorApplicationInput,
@@ -120,6 +121,7 @@ export function EventsPageContent() {
   });
 
   const isAdmin = profile?.role === 'admin_general';
+  const canOpenPanel = isPrivilegedRole(profile?.role);
 
   const loadEvents = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
@@ -319,7 +321,7 @@ export function EventsPageContent() {
       <header className="web-app-header">
         <HermesLogoLockup size={28} />
         <div className="web-app-header-actions">
-          {isAdmin && (
+          {canOpenPanel && (
             <Link className="web-header-link" href="/dashboard">
               Panel
             </Link>

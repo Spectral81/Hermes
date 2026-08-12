@@ -47,10 +47,18 @@ export default function LoginPage() {
         return;
       }
 
-      const location = await requestUserLocationReliable();
-      if (location) saveUserLocation(location);
+      const next = typeof result.redirectTo === 'string' && result.redirectTo
+        ? result.redirectTo
+        : '/mapa';
 
-      router.push(result.redirectTo ?? '/mapa');
+      // No bloquear el redirect por GPS (en producción el prompt puede colgarse).
+      void requestUserLocationReliable()
+        .then((location) => {
+          if (location) saveUserLocation(location);
+        })
+        .catch(() => {});
+
+      router.replace(next);
       router.refresh();
     } catch {
       setError('No se pudo conectar con el servidor.');

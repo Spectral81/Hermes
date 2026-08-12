@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, type SetAllCookies } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { validateLogin } from '@uteq/shared';
+import { isPrivilegedRole, validateLogin } from '@uteq/shared';
 
 export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -70,31 +70,36 @@ export async function POST(request: Request) {
 
   const normalizedEmail = email!.trim().toLowerCase();
 
-  // Asegura que exista perfil y lee rol de forma consistente
-  // en el mismo request de login.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Asegura perfil y resuelve rol de forma robusta (RPC + tabla + semillas).
   let redirectTo = '/mapa';
   const { data: ensuredProfile, error: ensureError } = await supabase.rpc('ensure_my_profile');
-  let role = (ensuredProfile as { role?: string } | null)?.role;
+  let role = (ensuredProfile as { role?: string } | null)?.role ?? null;
 
-  // Fallback para cuentas semilla de roles cuando el RPC falle temporalmente
-  // o el profile aún no esté disponible en esta solicitud.
-  if (!role) {
+  if ((!role || role === 'estudiante') && user?.id) {
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profileRow?.role) role = profileRow.role as string;
+  }
+
+  // Fallback para cuentas semilla de roles cuando el perfil aún no esté listo.
+  if (!role || role === 'estudiante') {
     if (normalizedEmail === 'admin@uteq.edu.mx') role = 'admin_general';
     if (normalizedEmail === 'robos@uteq.edu.mx') role = 'responsable_robos';
     if (normalizedEmail === 'emergencias@uteq.edu.mx') role = 'responsable_accidentes';
     if (normalizedEmail === 'infraestructura@uteq.edu.mx') role = 'responsable_infraestructura';
   }
 
-  if (
-    role === 'admin_general' ||
-    role === 'responsable_robos' ||
-    role === 'responsable_accidentes' ||
-    role === 'responsable_infraestructura'
-  ) {
+  if (isPrivilegedRole(role)) {
     redirectTo = '/dashboard';
   }
 
-  // Si falla ensure_my_profile, no bloqueamos login; solo informativo para diagnóstico.
   return NextResponse.json({
     ok: true,
     redirectTo,
