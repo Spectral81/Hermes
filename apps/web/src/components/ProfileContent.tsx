@@ -16,6 +16,7 @@ import { BackIcon, LogoutIcon, ThumbUpIcon } from '@/components/ui/icons';
 import { fetchIncidents } from '@/lib/incidents';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY, HERMES } from '@/lib/theme';
+import { WearableDevicesPanel } from '@/components/WearableDevicesPanel';
 
 const ROLE_LABELS: Record<string, string> = {
   estudiante: 'Estudiante',
@@ -129,6 +130,10 @@ export function ProfileContent() {
             <DataRow label="Matrícula" value={profile.matricula} />
           </HCard>
         )}
+
+        <div className="hermes-profile-block">
+          <WearableDevicesPanel />
+        </div>
 
         {privilegedRole && (
           <div className="hermes-profile-block">

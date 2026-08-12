@@ -14,6 +14,7 @@ import { ProfileAvatar } from '@/components/ui/ProfileAvatar';
 import { fetchIncidents } from '@/lib/incidents';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORY, HERMES } from '@/lib/theme';
+import { WearableDevicesPanel } from '@/components/WearableDevicesPanel';
 
 const ROLE_LABELS: Record<string, string> = {
   estudiante: 'Estudiante',
@@ -125,6 +126,10 @@ export function ProfileDrawer({ open, onClose }: Props) {
                 <DataRow label="Matrícula" value={profile.matricula} />
               </div>
             )}
+
+            <div className="profile-drawer-wearable">
+              <WearableDevicesPanel compact />
+            </div>
 
             <div className="profile-drawer-reports-head">
               <h3>Mis reportes</h3>

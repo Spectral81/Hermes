@@ -49,6 +49,17 @@ class _EventItem {
   final Color color;
 }
 
+class _WearableItem {
+  const _WearableItem({
+    required this.id,
+    required this.code,
+    required this.label,
+  });
+  final String id;
+  final String code;
+  final String label;
+}
+
 const Map<IncidentType, IconData> _typeIcons = {
   IncidentType.robo: Icons.warning_amber_rounded,
   IncidentType.accidente: Icons.add_circle_outline,
@@ -61,6 +72,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Map<String, dynamic>? _profile;
   List<Incident> _incidents = [];
   List<_EventItem> _upcomingEvents = [];
+  List<_WearableItem> _wearables = [];
   bool _loading = true;
 
   @override
@@ -174,8 +186,148 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (_) {}
 
     await _loadUpcomingEvents();
+    await _loadWearables();
 
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadWearables() async {
+    final baseUrl = AppEnv.webApiUrl;
+    if (baseUrl == null) {
+      if (mounted) setState(() => _wearables = []);
+      return;
+    }
+    try {
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      final dio = Dio(BaseOptions(baseUrl: baseUrl));
+      final res = await dio.get(
+        '/api/wearables',
+        options: Options(headers: token != null ? {'Authorization': 'Bearer $token'} : {}),
+      );
+      final list = (res.data as List?) ?? [];
+      final items = <_WearableItem>[];
+      for (final raw in list) {
+        if (raw is! Map) continue;
+        items.add(
+          _WearableItem(
+            id: '${raw['id']}',
+            code: '${raw['device_code']}',
+            label: '${raw['label'] ?? 'Pulsera SOS'}',
+          ),
+        );
+      }
+      if (mounted) setState(() => _wearables = items);
+    } catch (_) {
+      if (mounted) setState(() => _wearables = []);
+    }
+  }
+
+  Future<void> _pairWearable() async {
+    final baseUrl = AppEnv.webApiUrl;
+    if (baseUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Configura WEB_API_URL')),
+      );
+      return;
+    }
+
+    final codeCtrl = TextEditingController();
+    final labelCtrl = TextEditingController(text: 'Pulsera SOS');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Vincular pulsera'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Escribe el código del ESP32 (etiqueta o firmware).',
+              style: TextStyle(fontSize: 13, color: _kMuted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: 'Código',
+                hintText: 'HMS-A1B2',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: labelCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nombre',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Vincular')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final code = codeCtrl.text.trim().toUpperCase();
+    if (code.isEmpty) return;
+
+    try {
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      final dio = Dio(BaseOptions(baseUrl: baseUrl));
+      await dio.post(
+        '/api/wearables',
+        data: {'device_code': code, 'label': labelCtrl.text.trim()},
+        options: Options(
+          headers: {
+            if (token != null) 'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+      await _loadWearables();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Pulsera $code vinculada')),
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final msg = data is Map ? '${data['error'] ?? e.message}' : '${e.message}';
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  Future<void> _unlinkWearable(String id) async {
+    final baseUrl = AppEnv.webApiUrl;
+    if (baseUrl == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Desvincular'),
+        content: const Text('¿Quitar esta pulsera de tu cuenta?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sí')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
+      final dio = Dio(BaseOptions(baseUrl: baseUrl));
+      await dio.delete(
+        '/api/wearables/$id',
+        options: Options(headers: token != null ? {'Authorization': 'Bearer $token'} : {}),
+      );
+      await _loadWearables();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   String _displayName(User? user) {
@@ -264,6 +416,64 @@ class _ProfilePageState extends State<ProfilePage> {
                   _emptyReports()
                 else
                   ...mine.take(3).map(_reportCard),
+                const SizedBox(height: 24),
+                _sectionHeader(
+                  'Pulsera SOS',
+                  action: 'Vincular',
+                  onAction: _pairWearable,
+                ),
+                const SizedBox(height: 12),
+                if (_wearables.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _kBorder),
+                    ),
+                    child: const Text(
+                      'Aún no hay pulsera vinculada. Usa el código del ESP32.',
+                      style: TextStyle(color: _kMuted, fontSize: 13),
+                    ),
+                  )
+                else
+                  ..._wearables.map(
+                    (w) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _kBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.watch, color: Color(0xFFDC2626)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(w.label,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700, color: _kText)),
+                                Text(w.code,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: _kMuted,
+                                        fontFamily: 'monospace')),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => _unlinkWearable(w.id),
+                            child: const Text('Quitar'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 28),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
