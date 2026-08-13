@@ -1491,10 +1491,123 @@ a.profile-stat-chip:hover {
   background: #dbeafe;
 }
 
+.profile-action-link-muted {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #334155;
+}
+
+.profile-action-link-muted:hover {
+  background: #f1f5f9;
+}
+
 .profile-logout-wrap {
   display: flex;
   justify-content: center;
   margin-top: 8px;
+}
+
+/* ——— Política de privacidad ——— */
+.privacy-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.privacy-hero {
+  margin-bottom: 20px;
+}
+
+.privacy-kicker {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #2563eb;
+  text-transform: uppercase;
+}
+
+.privacy-hero h1 {
+  margin: 0 0 8px;
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.privacy-sub {
+  margin: 0 0 8px;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.privacy-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.privacy-body {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px 22px;
+  color: #334155;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.privacy-body > p {
+  margin: 0 0 12px;
+}
+
+.privacy-section {
+  margin-top: 22px;
+}
+
+.privacy-section h2 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.privacy-section p {
+  margin: 0 0 10px;
+}
+
+.privacy-section ul {
+  margin: 0 0 8px;
+  padding-left: 1.2rem;
+}
+
+.privacy-section li {
+  margin-bottom: 8px;
+}
+
+.privacy-footer {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.privacy-footer p {
+  margin: 0 0 6px;
+}
+
+.privacy-footer a {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.privacy-footer a:hover {
+  text-decoration: underline;
 }
 
 .hermes-profile-header {

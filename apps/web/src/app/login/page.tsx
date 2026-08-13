@@ -133,6 +133,8 @@ export default function LoginPage() {
         </p>
 
         <p className="hermes-auth-footer">
+          <Link href="/privacidad">Política de privacidad</Link>
+          {' · '}
           <Link href="/mapa">Entrar al mapa sin iniciar sesión</Link>
         </p>
       </div>

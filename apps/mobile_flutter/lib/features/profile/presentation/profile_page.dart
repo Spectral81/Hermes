@@ -474,7 +474,20 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(50),
+                    foregroundColor: const Color(0xFF334155),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () => context.push('/privacidad'),
+                  icon: const Icon(Icons.privacy_tip_outlined),
+                  label: const Text('Política de privacidad',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(height: 12),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(50),
@@ -608,6 +621,8 @@ class _ProfilePageState extends State<ProfilePage> {
         onSelected: (value) {
           if (value == 'dashboard') {
             context.push('/app/dashboard');
+          } else if (value == 'privacy') {
+            context.push('/privacidad');
           } else if (value == 'logout') {
             Supabase.instance.client.auth.signOut();
           }
@@ -615,6 +630,7 @@ class _ProfilePageState extends State<ProfilePage> {
         itemBuilder: (context) => [
           if (isPrivilegedRole(_role))
             const PopupMenuItem(value: 'dashboard', child: Text('Panel de gestión')),
+          const PopupMenuItem(value: 'privacy', child: Text('Política de privacidad')),
           const PopupMenuItem(value: 'logout', child: Text('Cerrar sesión')),
         ],
       ),

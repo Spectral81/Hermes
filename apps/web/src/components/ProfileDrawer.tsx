@@ -155,6 +155,14 @@ export function ProfileDrawer({ open, onClose }: Props) {
               >
                 Ver mis reportes
               </Link>
+              <Link
+                href="/privacidad"
+                className="hermes-btn hermes-btn-secondary hermes-btn-full"
+                onClick={onClose}
+                style={{ marginTop: 8 }}
+              >
+                Política de privacidad
+              </Link>
             </div>
 
             <div className="profile-drawer-footer">

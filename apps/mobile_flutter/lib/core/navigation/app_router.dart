@@ -12,6 +12,7 @@ import '../../features/incidents/presentation/alerts_page.dart';
 import '../../features/incidents/presentation/home_page.dart';
 import '../../features/incidents/presentation/reports_chat_page.dart';
 import '../../features/incidents/presentation/validate_report_page.dart';
+import '../../features/legal/presentation/privacy_policy_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../auth/auth_state_controller.dart';
 
@@ -22,13 +23,19 @@ final GoRouter appRouter = GoRouter(
   refreshListenable: _authState,
   initialLocation: '/auth',
   redirect: (context, state) {
-    final atAuth = state.uri.path.startsWith('/auth');
+    final path = state.uri.path;
+    if (path == '/privacidad') return null;
+    final atAuth = path.startsWith('/auth');
     final logged = _authState.isAuthenticated;
     if (!logged && !atAuth) return '/auth';
     if (logged && atAuth) return '/app/home';
     return null;
   },
   routes: [
+    GoRoute(
+      path: '/privacidad',
+      builder: (_, __) => const PrivacyPolicyPage(),
+    ),
     GoRoute(
       path: '/auth',
       builder: (_, __) => const WelcomePage(),

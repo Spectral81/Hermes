@@ -111,7 +111,7 @@ export default function RegisterPage() {
     setError(null);
 
     if (!acceptedTerms) {
-      setError('Debes aceptar los términos y la política de privacidad.');
+      setError('Debes aceptar la política de privacidad.');
       return;
     }
 
@@ -338,7 +338,11 @@ export default function RegisterPage() {
               onChange={(e) => setAcceptedTerms(e.target.checked)}
             />
             <span>
-              Acepto los <a href="#">Términos</a> y la <a href="#">Política de Privacidad</a> de HERMES UTEQ
+              Acepto la{' '}
+              <Link href="/privacidad" target="_blank">
+                Política de Privacidad
+              </Link>{' '}
+              de HERMES UTEQ
             </span>
           </label>
 

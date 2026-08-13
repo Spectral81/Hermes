@@ -131,6 +131,7 @@ export default function HomePage() {
           <div className="hermes-landing-footer-links">
             <Link href="/login">Iniciar sesión</Link>
             <Link href="/register">Registrarse</Link>
+            <Link href="/privacidad">Política de privacidad</Link>
           </div>
         </div>
       </footer>

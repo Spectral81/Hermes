@@ -23,6 +23,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   bool _loading = false;
   bool _showPassword = false;
+  bool _acceptedPrivacy = false;
   String? _error;
 
   @override
@@ -39,6 +40,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> _submit() async {
     setState(() => _error = null);
+    if (!_acceptedPrivacy) {
+      setState(() => _error = 'Debes aceptar la política de privacidad.');
+      return;
+    }
     if (_passwordCtrl.text != _confirmCtrl.text) {
       setState(() => _error = 'Las contraseñas no coinciden.');
       return;
@@ -129,10 +134,48 @@ class _RegisterPageState extends State<RegisterPage> {
               obscureText: !_showPassword,
               decoration: const InputDecoration(labelText: 'Confirmar contraseña'),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Checkbox(
+                  value: _acceptedPrivacy,
+                  onChanged: (v) => setState(() => _acceptedPrivacy = v ?? false),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _acceptedPrivacy = !_acceptedPrivacy),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Wrap(
+                        children: [
+                          const Text('Acepto la '),
+                          GestureDetector(
+                            onTap: () => context.push('/privacidad'),
+                            child: const Text(
+                              'Política de Privacidad',
+                              style: TextStyle(
+                                color: Color(0xFF2563EB),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const Text(' de HERMES UTEQ'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             FilledButton(
               onPressed: _loading ? null : _submit,
               child: Text(_loading ? 'Registrando...' : 'Registrarse'),
+            ),
+            TextButton(
+              onPressed: () => context.push('/privacidad'),
+              child: const Text('Leer política de privacidad'),
             ),
           ],
         ),

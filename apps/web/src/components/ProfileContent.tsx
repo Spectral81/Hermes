@@ -178,6 +178,12 @@ export function ProfileContent() {
           </section>
         )}
 
+        <section className="profile-actions">
+          <Link href="/privacidad" className="profile-action-link profile-action-link-muted">
+            Política de privacidad
+          </Link>
+        </section>
+
         <div className="profile-logout-wrap">
           <HButton variant="ghost" onClick={handleLogout}>
             <LogoutIcon /> Cerrar sesión

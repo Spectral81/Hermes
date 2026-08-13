@@ -179,6 +179,10 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ],
             ),
+            TextButton(
+              onPressed: () => context.push('/privacidad'),
+              child: const Text('Política de privacidad'),
+            ),
           ],
         ),
       ),
